@@ -479,6 +479,224 @@ struct compat_vpu_request {
 #define VPU_POWER_OFF_DELAY		(4 * HZ) /* 4s */
 #define VPU_TIMEOUT_DELAY		(2 * HZ) /* 2s */
 
+#define VIDEO_INFO 1
+
+#if VIDEO_INFO
+
+struct video_info {
+	unsigned int width;
+	u8 bit_depth;
+	pid_t pid;
+	struct list_head node;
+};
+
+static DEFINE_MUTEX(video_info_mutex);
+static LIST_HEAD(video_info_list);
+
+static struct video_info *find_video_info(pid_t pid)
+{
+	struct video_info *info;
+
+	mutex_lock(&video_info_mutex);
+	list_for_each_entry(info, &video_info_list, node) {
+		if (info->pid == pid) {
+			mutex_unlock(&video_info_mutex);
+			return info;
+		}
+	}
+	mutex_unlock(&video_info_mutex);
+	return NULL;
+}
+
+static int add_video_info(pid_t pid, unsigned int width, u8 bit_depth)
+{
+	struct video_info *info = find_video_info(pid);
+
+	if (info) {
+		info->width = width;
+		info->bit_depth = bit_depth;
+	} else {
+		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		if (!info)
+			return -ENOMEM;
+		info->pid = pid;
+		info->width = width;
+		info->bit_depth = bit_depth;
+		mutex_lock(&video_info_mutex);
+		list_add(&info->node, &video_info_list);
+		mutex_unlock(&video_info_mutex);
+	}
+	return 0;
+}
+
+static int del_video_info(pid_t pid)
+{
+	struct video_info *info = find_video_info(pid);
+
+	if (!info)
+		return -1;
+
+	mutex_lock(&video_info_mutex);
+	list_del(&info->node);
+	mutex_unlock(&video_info_mutex);
+	kfree(info);
+	return 0;
+}
+
+static bool has_4k_in_list(void)
+{
+	struct video_info *info;
+
+	mutex_lock(&video_info_mutex);
+	list_for_each_entry(info, &video_info_list, node) {
+		if (info->width > 1920 && info->bit_depth != 10) {
+			mutex_unlock(&video_info_mutex);
+			return true;
+		}
+	}
+	mutex_unlock(&video_info_mutex);
+	return false;
+}
+
+static bool has_1080p_in_list(void)
+{
+	struct video_info *info;
+
+	mutex_lock(&video_info_mutex);
+	list_for_each_entry(info, &video_info_list, node) {
+		if (info->width <= 1920 && info->width > 0) {
+			mutex_unlock(&video_info_mutex);
+			return true;
+		}
+	}
+	mutex_unlock(&video_info_mutex);
+	return false;
+}
+
+static bool has_4k_10bit_in_list(void)
+{
+	struct video_info *info;
+
+	mutex_lock(&video_info_mutex);
+	list_for_each_entry(info, &video_info_list, node) {
+		if (info->bit_depth == 10 && info->width > 1920) {
+			mutex_unlock(&video_info_mutex);
+			return true;
+		}
+	}
+	mutex_unlock(&video_info_mutex);
+	return false;
+}
+
+static int update_system_status(void)
+{
+	unsigned long previous_status = rockchip_get_system_status();
+	bool is_previous_4k = previous_status & (SYS_STATUS_VIDEO_4K);
+	bool is_previous_1080P = previous_status & (SYS_STATUS_VIDEO_1080P);
+	bool is_previous_4k_10bit = previous_status & (SYS_STATUS_VIDEO_4K_10B);
+	bool has_4k = has_4k_in_list();
+	bool has_1080p = has_1080p_in_list();
+	bool has_4k_10bit = has_4k_10bit_in_list();
+
+	if (has_4k) {
+		if (!is_previous_4k)
+			rockchip_set_system_status(SYS_STATUS_VIDEO_4K);
+	} else {
+		if (is_previous_4k)
+			rockchip_clear_system_status(SYS_STATUS_VIDEO_4K);
+	}
+
+	if (has_1080p) {
+		if (!is_previous_1080P)
+			rockchip_set_system_status(SYS_STATUS_VIDEO_1080P);
+	} else {
+		if (is_previous_1080P)
+			rockchip_clear_system_status(SYS_STATUS_VIDEO_1080P);
+	}
+
+	if (has_4k_10bit) {
+		if (!is_previous_4k_10bit)
+			rockchip_set_system_status(SYS_STATUS_VIDEO_4K_10B);
+	} else {
+		if (is_previous_4k_10bit)
+			rockchip_clear_system_status(SYS_STATUS_VIDEO_4K_10B);
+	}
+
+	return 0;
+}
+
+static int probe_width(struct vpu_reg *reg)
+{
+	int width = 0;
+	int type = -1;
+
+	if (reg->type != VPU_DEC && reg->type != VPU_DEC_PP) {
+		return -1;
+	}
+	if (reg->task->get_fmt) {
+		type = reg->task->get_fmt(reg->reg);
+	} else {
+		pr_info("invalid task with NULL get_fmt\n");
+		return -EINVAL;
+	}
+
+	switch (reg->data->hw_id) {
+	case VPU_DEC_ID_9190:
+	case VPU_ID_8270:
+	case VPU_ID_4831:
+
+		switch (type) {
+		case FMT_JPEGD:
+		case FMT_H263D:
+		case FMT_H264D:
+		case FMT_MPEG2D:
+		case FMT_MPEG4D:
+		case FMT_VP6D:
+		case FMT_VP8D:
+		case FMT_VC1D:
+		case FMT_AVSD:
+			width = (reg->reg[04] & 0xff800000) >> 19;
+			break;
+		default: //MPEG1D, VP7D, H265D, VP9D, FMT_PP, JPEGE, H264E, VP8E
+			pr_err("unsupported FORMAT_TYPE %d\n", type);
+			break;
+		}
+		break;
+
+	case HEVC_ID:
+	case RKV_DEC_ID:
+	case RKV_DEC_ID2:
+		if (type == FMT_H264D || type == FMT_H265D || type == FMT_VP9D)
+			width = (reg->reg[3] & 0x3ff) << 4;
+		break;
+
+	case VPU2_ID:
+		switch (type) {
+		case FMT_H264D:
+			width = (reg->reg[110] & 0x1ff) << 4;
+			break;
+		case FMT_JPEGD:
+		case FMT_H263D:
+		case FMT_MPEG2D:
+		case FMT_MPEG4D:
+		case FMT_VP6D:
+		case FMT_VP8D:
+		case FMT_VC1D:
+		case FMT_AVSD:
+			width = (reg->reg[120] & 0xff800000) >> 19;
+			break;
+		default: //MPEG1D, VP7D, H265D, VP9D, FMT_PP, JPEGE, H264E, VP8E
+			pr_err("unsupported FORMAT_TYPE %d\n", type);
+			break;
+		}
+		break;
+	}
+
+	return width;
+}
+
+#endif
+
 static void vcodec_reduce_freq_rk3328(struct vpu_service_info *pservice);
 
 static void vpu_service_power_on(struct vpu_subdev_data *data,
