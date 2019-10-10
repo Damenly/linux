@@ -3,6 +3,10 @@
  * ov4689 driver
  *
  * Copyright (C) 2017 Fuzhou Rockchip Electronics Co., Ltd.
+ *
+ * V0.0X01.0X01 add poweron function.
+ * V0.0X01.0X02 fix mclk issue when probe multiple camera.
+ * V0.0X01.0X03 fix gain range.
  */
 
 #include <linux/clk.h>
@@ -19,6 +23,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <linux/pinctrl/consumer.h>
+
+#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x03)
 
 #ifndef V4L2_CID_DIGITAL_GAIN
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
@@ -46,10 +52,10 @@
 #define OV4689_GAIN_H_MASK		0x07
 #define OV4689_GAIN_H_SHIFT		8
 #define OV4689_GAIN_L_MASK		0xff
-#define OV4689_GAIN_MIN			0x10
-#define OV4689_GAIN_MAX			0xf8
+#define OV4689_GAIN_MIN			0x80
+#define OV4689_GAIN_MAX			0x7f8
 #define OV4689_GAIN_STEP		1
-#define OV4689_GAIN_DEFAULT		0x10
+#define OV4689_GAIN_DEFAULT		0x80
 
 #define OV4689_REG_TEST_PATTERN		0x5040
 #define OV4689_TEST_PATTERN_ENABLE	0x80
