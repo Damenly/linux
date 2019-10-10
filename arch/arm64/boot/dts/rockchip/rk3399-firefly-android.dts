@@ -53,8 +53,13 @@
 	model = "Rockchip RK3399 Firefly Board (Android)";
 	compatible = "rockchip,rk3399-firefly-android", "rockchip,rk3399";
 
+<<<<<<< HEAD
 	chosen {
 		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1";
+=======
+	chosen: chosen {
+		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 swiotlb=1 coherent_pool=1m";
+>>>>>>> 7113a0b360ef... arm64: dts: rockchip: Add chosen label for Android
 	};
 
 	cpuinfo {
