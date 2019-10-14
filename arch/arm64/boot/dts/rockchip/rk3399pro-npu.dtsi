@@ -528,6 +528,336 @@
 		clock-names = "pclk", "timer";
 	};
 
+	dfi: dfi@ff9c0000 {
+		reg = <0x00 0xff9c0000 0x00 0x400>;
+		compatible = "rockchip,rk1808-dfi";
+		rockchip,pmugrf = <&pmugrf>;
+		status = "disabled";
+	};
+
+	dmc: dmc {
+		compatible = "rockchip,rk1808-dmc";
+		dcf_reg = <&dcf>;
+		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "complete_irq";
+		devfreq-events = <&dfi>;
+		clocks = <&cru SCLK_DDRCLK>;
+		clock-names = "dmc_clk";
+		operating-points-v2 = <&dmc_opp_table>;
+		ddr_timing = <&ddr_timing>;
+		upthreshold = <40>;
+		downdifferential = <20>;
+		system-status-freq = <
+			/*system status         freq(KHz)*/
+			SYS_STATUS_NORMAL       924000
+			SYS_STATUS_REBOOT       450000
+			SYS_STATUS_SUSPEND      328000
+			SYS_STATUS_BOOST        924000
+			SYS_STATUS_ISP          924000
+			SYS_STATUS_PERFORMANCE  924000
+		>;
+		auto-min-freq = <328000>;
+		auto-freq-en = <0>;
+		#cooling-cells = <2>;
+		status = "disabled";
+	};
+
+	dmc_opp_table: dmc-opp-table {
+		compatible = "operating-points-v2";
+
+		rockchip,max-volt = <950000>;
+		rockchip,evb-irdrop = <12500>;
+		nvmem-cells = <&logic_leakage>;
+		nvmem-cell-names = "leakage";
+
+		opp-192000000 {
+			opp-hz = /bits/ 64 <192000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-324000000 {
+			opp-hz = /bits/ 64 <324000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-450000000 {
+			opp-hz = /bits/ 64 <450000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-528000000 {
+			opp-hz = /bits/ 64 <528000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-664000000 {
+			opp-hz = /bits/ 64 <664000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-784000000 {
+			opp-hz = /bits/ 64 <784000000>;
+			opp-microvolt = <800000>;
+		};
+		opp-924000000 {
+			opp-hz = /bits/ 64 <924000000>;
+			opp-microvolt = <800000>;
+		};
+		/* 1066M is only for ddr4 */
+		opp-1066000000 {
+			opp-hz = /bits/ 64 <1066000000>;
+			opp-microvolt = <800000>;
+			status = "disabled";
+		};
+	};
+
+	rk_rga: rk_rga@ffaf0000 {
+		compatible = "rockchip,rga2";
+		dev_mode = <0>;
+		reg = <0x0 0xffaf0000 0x0 0x1000>;
+		interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_RGA>, <&cru HCLK_RGA>, <&cru SCLK_RGA>;
+		clock-names = "aclk_rga", "hclk_rga", "clk_rga";
+		power-domains = <&power RK1808_PD_VIO>;
+		dma-coherent;
+		status = "disabled";
+	};
+
+	cif: cif@ffae0000 {
+		compatible = "rockchip,rk1808-cif";
+		reg = <0x0 0xffae0000 0x0 0x200>, <0x0 0xffb10000 0x0 0x100>;
+		reg-names = "cif_regs", "csihost_regs";
+		interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "cif-intr", "csi-intr1", "csi-intr2";
+		clocks = <&cru ACLK_CIF>, <&cru DCLK_CIF>,
+			 <&cru HCLK_CIF>, <&cru SCLK_CIF_OUT>,
+			 <&cru PCLK_CSI2HOST>;
+		clock-names = "aclk_cif", "dclk_cif",
+			"hclk_cif", "sclk_cif_out",
+			"pclk_csi2host";
+		resets = <&cru SRST_CIF_A>, <&cru SRST_CIF_H>,
+			 <&cru SRST_CIF_I>, <&cru SRST_CIF_D>,
+			 <&cru SRST_CIF_PCLKIN>;
+		reset-names = "rst_cif_a", "rst_cif_h",
+			"rst_cif_i", "rst_cif_d",
+			"rst_cif_pclkin";
+		power-domains = <&power RK1808_PD_VIO>;
+		iommus = <&cif_mmu>;
+		status = "disabled";
+	};
+
+	cif_mmu: iommu@ffae0800 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xffae0800 0x0 0x100>;
+		interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "cif_mmu";
+		clocks = <&cru ACLK_CIF>, <&cru HCLK_CIF>;
+		clock-names = "aclk", "hclk";
+		power-domains = <&power RK1808_PD_VIO>;
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	vop_lite: vop@ffb00000 {
+		compatible = "rockchip,rk1808-vop-lit";
+		reg = <0x0 0xffb00000 0x0 0x200>;
+		reg-names = "regs";
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_VOPLITE>, <&cru DCLK_VOPLITE>,
+			 <&cru HCLK_VOPLITE>;
+		clock-names = "aclk_vop", "dclk_vop", "hclk_vop";
+		power-domains = <&power RK1808_PD_VIO>;
+		iommus = <&vopl_mmu>;
+		status = "disabled";
+
+		vop_lite_out: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			vop_lite_out_dsi: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&dsi_in_vop_lite>;
+			};
+
+			vop_lite_out_rgb: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&rgb_in_vop_lite>;
+			};
+		};
+	};
+
+	vopl_mmu: iommu@ffb00f00 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xffb00f00 0x0 0x100>;
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "vopl_mmu";
+		clocks = <&cru ACLK_VOPLITE>, <&cru HCLK_VOPLITE>;
+		clock-names = "aclk", "hclk";
+		power-domains = <&power RK1808_PD_VIO>;
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	mipi_csi2: mipi-csi2@ffb10000 {
+		compatible = "rockchip,rk1808-mipi-csi2";
+		reg = <0x0 0xffb10000 0x0 0x100>;
+		reg-names = "csihost_regs";
+		interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "csi-intr1", "csi-intr2";
+		clocks = <&cru PCLK_CSI2HOST>;
+		clock-names = "pclk_csi2host";
+		status = "disabled";
+	};
+
+	csi_tx: csi@ffb20000 {
+		compatible = "rockchip,rk1808-mipi-csi";
+		reg = <0x0 0xffb20000 0x0 0x500>;
+		reg-names = "csi_regs";
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru PCLK_CSI_TX>, <&mipi_dphy>;
+		clock-names = "pclk", "hs_clk";
+		resets = <&cru SRST_CSITX_P>,
+			 <&cru SRST_CSITX_TXBYTEHS>,
+			 <&cru SRST_CSITX_TXESC>,
+			 <&cru SRST_CSITX_CAM>,
+			 <&cru SRST_CSITX_I>;
+		reset-names = "tx_apb", "tx_bytehs", "tx_esc", "tx_cam", "tx_i";
+		phys = <&mipi_dphy>;
+		phy-names = "mipi_dphy";
+		power-domains = <&power RK1808_PD_VIO>;
+		rockchip,grf = <&grf>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		ports {
+
+			port {
+				csi_in_vop_raw: endpoint {
+					remote-endpoint = <&vop_raw_out_csi>;
+				};
+			};
+		};
+	};
+
+	dsi: dsi@ffb30000 {
+		compatible = "rockchip,rk1808-mipi-dsi";
+		reg = <0x0 0xffb30000 0x0 0x500>;
+		interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru PCLK_DSI_TX>, <&mipi_dphy>;
+		clock-names = "pclk", "hs_clk";
+		resets = <&cru SRST_MIPIDSI_HOST_P>;
+		reset-names = "apb";
+		phys = <&mipi_dphy>;
+		phy-names = "mipi_dphy";
+		power-domains = <&power RK1808_PD_VIO>;
+		rockchip,grf = <&grf>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		ports {
+			port {
+				dsi_in_vop_lite: endpoint {
+					remote-endpoint = <&vop_lite_out_dsi>;
+				};
+			};
+		};
+	};
+
+	vop_raw: vop@ffb40000 {
+		compatible = "rockchip,rk1808-vop-raw";
+		reg = <0x0 0xffb40000 0x0 0x500>;
+		reg-names = "regs";
+		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_VOPRAW>, <&cru DCLK_VOPRAW>,
+			 <&cru HCLK_VOPRAW>;
+		clock-names = "aclk_vop", "dclk_vop", "hclk_vop";
+		power-domains = <&power RK1808_PD_VIO>;
+		iommus = <&vopr_mmu>;
+		status = "disabled";
+
+		vop_raw_out: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			vop_raw_out_csi: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&csi_in_vop_raw>;
+			};
+		};
+	};
+
+	vopr_mmu: iommu@ffb40f00 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xffb40f00 0x0 0x100>;
+		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "vopr_mmu";
+		clocks = <&cru ACLK_VOPRAW>, <&cru HCLK_VOPRAW>;
+		clock-names = "aclk", "hclk";
+		power-domains = <&power RK1808_PD_VIO>;
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	rkisp1: rkisp1@ffb50000 {
+		compatible = "rockchip,rk1808-rkisp1";
+		reg = <0x0 0xffb50000 0x0 0x8000>;
+		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "isp_irq", "mi_irq", "mipi_irq";
+		clocks = <&cru ACLK_ISP>, <&cru HCLK_ISP>,
+			<&cru SCLK_ISP>, <&cru DCLK_CIF>;
+		clock-names = "aclk_isp", "hclk_isp",
+			"clk_isp", "pclk_isp";
+		power-domains = <&power RK1808_PD_VIO>;
+		iommus = <&isp_mmu>;
+		rockchip,grf = <&grf>;
+		status = "disabled";
+	};
+
+	isp_mmu: iommu@ffb58000 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xffb58000 0x0 0x100>;
+		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "isp_mmu";
+		clocks = <&cru ACLK_ISP>, <&cru HCLK_ISP>,
+			<&cru SCLK_ISP>;
+		clock-names = "aclk", "hclk", "sclk";
+		power-domains = <&power RK1808_PD_VIO>;
+		rk_iommu,disable_reset_quirk;
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	vpu_service: vpu_service@ffb80000 {
+		compatible = "rockchip,vpu_service";
+		reg = <0x0 0xffb80000 0x0 0x800>;
+		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "irq_enc", "irq_dec";
+		clocks = <&cru ACLK_VPU>, <&cru HCLK_VPU>;
+		clock-names = "aclk_vcodec", "hclk_vcodec";
+		power-domains = <&power RK1808_PD_VPU>;
+		resets = <&cru SRST_VPU_A>, <&cru SRST_VPU_H>;
+		reset-names = "video_a", "video_h";
+		iommus = <&vpu_mmu>;
+		iommu_enabled = <1>;
+		allocator = <1>; /* 0 means ion, 1 means drm */
+		status = "disabled";
+	};
+
+	vpu_mmu: iommu@ffb80800 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xffb80800 0x0 0x100>;
+		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "vpu_mmu";
+		clocks = <&cru ACLK_VPU>, <&cru HCLK_VPU>;
+		clock-names = "aclk", "hclk";
+		power-domains = <&power RK1808_PD_VPU>;
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
 	npu: npu@ffbc0000 {
 		compatible = "rockchip,npu";
 		reg = <0x0 0xffbc0000 0x0 0x1000>;
