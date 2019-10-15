@@ -1,17 +1,27 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright (c) 2018 Fuzhou Rockchip Electronics Co., Ltd
  */
 
 /dts-v1/;
 #include <dt-bindings/clock/rk618-cru.h>
-#include "px30-ad-r35-mb.dtsi"
+#include <dt-bindings/display/media-bus-format.h>
+#include "px30-evb-ddr3-v10.dtsi"
 
 &dmc {
 	auto-freq-en = <0>;
 };
 
-&i2c0 {
+&vcc3v0_pmu {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+
+	regulator-state-mem {
+		regulator-suspend-microvolt = <3300000>;
+	};
+};
+
+&i2c1 {
 	status = "okay";
 
 	rk618@50 {
@@ -24,7 +34,7 @@
 		clocks = <&cru SCLK_I2S1_OUT>;
 		clock-names = "clkin";
 		assigned-clocks = <&cru SCLK_I2S1_OUT>;
-		assigned-clock-rates = <12000000>;
+		assigned-clock-rates = <11289600>;
 		reset-gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
@@ -72,11 +82,6 @@
 	};
 };
 
-&vopl {
-	assigned-clocks = <&cru PLL_NPLL>;
-	assigned-clock-rates = <1188000000>;
-};
-
 &rgb {
 	status = "okay";
 
@@ -101,5 +106,5 @@
 
 &route_rgb {
 	connect = <&vopl_out_rgb>;
-	status = "okay";
+	status = "disabled";
 };
