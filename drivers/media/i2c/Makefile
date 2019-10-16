@@ -100,6 +100,9 @@ obj-$(CONFIG_VIDEO_GC0329)	+= gc0329.o
 obj-$(CONFIG_VIDEO_GC2035)	+= gc2035.o
 obj-$(CONFIG_VIDEO_GC2145)	+= gc2355.o
 obj-$(CONFIG_VIDEO_SC031GS)	+= sc031gs.o
-
+obj-$(CONFIG_VIDEO_SC132GS)	+= sc132gs.o
+obj-$(CONFIG_VIDEO_XC7080_XC530)	+= xc7080-xc530.o
+obj-$(CONFIG_VIDEO_BF3925)	+= bf3925.o
+obj-$(CONFIG_VIDEO_PREISP_DUMMY_SENSOR) += preisp-dummy.o
 obj-$(CONFIG_VIDEO_VM149C)	+= vm149c.o
 obj-$(CONFIG_VIDEO_VIRT_CAMERA) += virtual-camera.o
