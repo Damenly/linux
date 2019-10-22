@@ -3128,6 +3128,11 @@ static int dwc2_hsotg_ep_disable(struct usb_ep *ep)
 	spin_lock_irqsave(&hsotg->lock, flags);
 
 	ctrl = dwc2_readl(hsotg->regs + epctrl_reg);
+
+	/* stop isoc ep in transfer even if the ep is disabled */
+	if ((ctrl & DXEPCTL_EPENA) || (dir_in && (ctrl & DXEPCTL_EPTYPE_ISO)))
+		dwc2_hsotg_ep_stop_xfr(hsotg, hs_ep);
+
 	ctrl &= ~DXEPCTL_EPENA;
 	ctrl &= ~DXEPCTL_USBACTEP;
 	ctrl |= DXEPCTL_SNAK;
