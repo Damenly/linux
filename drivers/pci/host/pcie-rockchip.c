@@ -1759,6 +1759,14 @@ static int rockchip_pcie_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct rockchip_pcie *rockchip = dev_get_drvdata(dev);
+	u32 status1, status2;
+	u32 status;
+
+	status1 = rockchip_pcie_read(rockchip, PCIE_CLIENT_BASIC_STATUS1);
+	status2 = rockchip_pcie_read(rockchip, PCIE_CLIENT_DEBUG_OUT_0);
+
+	if (!PCIE_LINK_UP(status1) || !PCIE_LINK_IS_L0(status2))
+		rockchip->in_remove = 1;
 
 	if (rockchip->root_bus) {
 		pci_stop_root_bus(rockchip->root_bus);
@@ -1767,6 +1775,16 @@ static int rockchip_pcie_remove(struct platform_device *pdev)
 
 	pci_unmap_iospace(rockchip->io);
 	irq_domain_remove(rockchip->irq_domain);
+
+	status = rockchip_pcie_read(rockchip, PCIE_RC_CONFIG_LCS);
+	status |= BIT(4);
+	rockchip_pcie_write(rockchip, status, PCIE_RC_CONFIG_LCS);
+
+	mdelay(1);
+
+	status = rockchip_pcie_read(rockchip, PCIE_RC_CONFIG_LCS);
+	status &= ~BIT(4);
+	rockchip_pcie_write(rockchip, status, PCIE_RC_CONFIG_LCS);
 
 	/* disabled ltssm */
 	rockchip_pcie_write(rockchip, PCIE_CLIENT_LINK_TRAIN_DISABLE,
