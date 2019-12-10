@@ -964,13 +964,16 @@ static noinline struct btrfs_device *device_list_add(const char *path,
 	 * metadata_uuid/fsid values of the fs_devices.
 	 */
 	if (*new_device_added && fs_devices_found &&
-	    has_metadata_uuid && fs_devices->fsid_change &&
+	    fs_devices->fsid_change &&
 	    found_transid > fs_devices->latest_generation) {
 		memcpy(fs_devices->fsid, disk_super->fsid,
 		       BTRFS_FSID_SIZE);
-		memcpy(fs_devices->metadata_uuid,
-		       disk_super->metadata_uuid, BTRFS_FSID_SIZE);
-
+		if (has_metadata_uuid)
+			memcpy(fs_devices->metadata_uuid,
+			       disk_super->metadata_uuid, BTRFS_FSID_SIZE);
+		else
+			memcpy(fs_devices->metadata_uuid,
+			       disk_super->fsid, BTRFS_FSID_SIZE);
 		fs_devices->fsid_change = false;
 	}
 
