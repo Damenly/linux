@@ -654,7 +654,6 @@ static struct btrfs_fs_devices *find_fsid_inprogress(
 	return NULL;
 }
 
-
 static struct btrfs_fs_devices *find_fsid_changed(
 					struct btrfs_super_block *disk_super)
 {
@@ -663,9 +662,14 @@ static struct btrfs_fs_devices *find_fsid_changed(
 	/*
 	 * Handles the case where scanned device is part of an fs that had
 	 * multiple successful changes of FSID but curently device didn't
-	 * observe it. Meaning our fsid will be different than theirs.
+	 * observe it.
+	 *
+	 * Case 1: the devices already changed still owns the feature, their
+	 * fsid must differ from the disk_super->fsid.
 	 */
 	list_for_each_entry(fs_devices, &fs_uuids, fs_list) {
+		if (fs_devices->fsid_change)
+			continue;
 		if (memcmp(fs_devices->metadata_uuid, fs_devices->fsid,
 			   BTRFS_FSID_SIZE) != 0 &&
 		    memcmp(fs_devices->metadata_uuid, disk_super->metadata_uuid,
@@ -676,7 +680,26 @@ static struct btrfs_fs_devices *find_fsid_changed(
 		}
 	}
 
-	return NULL;
+	/*
+	 * Case 2: the synced devices doesn't have the metadata_uuid feature.
+	 * NOTE: the fs_devices has same metadata_uuid and fsid in memory, but
+	 * they differs in disk, because fs_id is copied to
+	 * fs_devices->metadata_id while alloc_fs_devices if no metadata
+	 * feature.
+	 */
+	list_for_each_entry(fs_devices, &fs_uuids, fs_list) {
+		if (memcmp(fs_devices->metadata_uuid, fs_devices->fsid,
+			   BTRFS_FSID_SIZE) == 0 &&
+		    memcmp(fs_devices->fsid, disk_super->metadata_uuid,
+			   BTRFS_FSID_SIZE) == 0 && !fs_devices->fsid_change)
+			return fs_devices;
+	}
+
+	/*
+	 * Okay, can't found any fs_devices already synced, back to
+	 * search devices unchanged or changing like the device.
+	 */
+	return find_fsid(disk_super->fsid, disk_super->metadata_uuid);
 }
 
 static struct btrfs_fs_devices *find_fsid_changing_metada_uuid(
