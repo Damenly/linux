@@ -732,6 +732,9 @@ static noinline struct btrfs_device *device_list_add(const char *path,
 		BTRFS_FEATURE_INCOMPAT_METADATA_UUID);
 	bool fsid_change_in_progress = (btrfs_super_flags(disk_super) &
 					BTRFS_SUPER_FLAG_CHANGING_FSID_V2);
+	bool fs_devices_found = false;
+
+	*new_device_added = false;
 
 	if (fsid_change_in_progress) {
 		if (!has_metadata_uuid) {
@@ -772,24 +775,11 @@ static noinline struct btrfs_device *device_list_add(const char *path,
 
 		device = NULL;
 	} else {
+		fs_devices_found = true;
+
 		mutex_lock(&fs_devices->device_list_mutex);
 		device = btrfs_find_device(fs_devices, devid,
 				disk_super->dev_item.uuid, NULL, false);
-
-		/*
-		 * If this disk has been pulled into an fs devices created by
-		 * a device which had the CHANGING_FSID_V2 flag then replace the
-		 * metadata_uuid/fsid values of the fs_devices.
-		 */
-		if (has_metadata_uuid && fs_devices->fsid_change &&
-		    found_transid > fs_devices->latest_generation) {
-			memcpy(fs_devices->fsid, disk_super->fsid,
-					BTRFS_FSID_SIZE);
-			memcpy(fs_devices->metadata_uuid,
-					disk_super->metadata_uuid, BTRFS_FSID_SIZE);
-
-			fs_devices->fsid_change = false;
-		}
 	}
 
 	if (!device) {
@@ -910,6 +900,22 @@ static noinline struct btrfs_device *device_list_add(const char *path,
 			fs_devices->missing_devices--;
 			clear_bit(BTRFS_DEV_STATE_MISSING, &device->dev_state);
 		}
+	}
+
+	/*
+	 * If the new added disk has been pulled into an fs devices created by
+	 * a device which had the CHANGING_FSID_V2 flag then replace the
+	 * metadata_uuid/fsid values of the fs_devices.
+	 */
+	if (*new_device_added && fs_devices_found &&
+	    has_metadata_uuid && fs_devices->fsid_change &&
+	    found_transid > fs_devices->latest_generation) {
+		memcpy(fs_devices->fsid, disk_super->fsid,
+		       BTRFS_FSID_SIZE);
+		memcpy(fs_devices->metadata_uuid,
+		       disk_super->metadata_uuid, BTRFS_FSID_SIZE);
+
+		fs_devices->fsid_change = false;
 	}
 
 	/*
