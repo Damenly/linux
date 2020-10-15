@@ -539,7 +539,10 @@ struct btrfs_ioctl_search_header {
 	__u64 objectid;
 	__u64 offset;
 	__u32 type;
-	__u32 len;
+	__u64 len;
+
+	/* align to 64 bits */
+	__u32 unused;
 };
 
 #define BTRFS_SEARCH_ARGS_BUFSIZE (4096 - sizeof(struct btrfs_ioctl_search_key))
