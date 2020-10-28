@@ -222,7 +222,6 @@ struct cgroup_namespace init_cgroup_ns = {
 /* Ditto for the can_fork callback. */
 static unsigned long have_canfork_callback __read_mostly;
 
-static struct file_system_type cgroup2_fs_type;
 static struct cftype cgroup_dfl_base_files[];
 static struct cftype cgroup_legacy_base_files[];
 
@@ -1664,6 +1663,10 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
 			all_ss = true;
 			continue;
 		}
+		if (!strcmp(token, "__DEVEL__sane_behavior")) {
+			opts->flags |= CGRP_ROOT_SANE_BEHAVIOR;
+			continue;
+		}
 		if (!strcmp(token, "noprefix")) {
 			opts->flags |= CGRP_ROOT_NOPREFIX;
 			continue;
@@ -1728,6 +1731,15 @@ static int parse_cgroupfs_options(char *data, struct cgroup_sb_opts *opts)
 		}
 		if (i == CGROUP_SUBSYS_COUNT)
 			return -ENOENT;
+	}
+
+	if (opts->flags & CGRP_ROOT_SANE_BEHAVIOR) {
+		pr_warn("sane_behavior: this is still under development and its behaviors will change, proceed at your own risk\n");
+		if (nr_opts != 1) {
+			pr_err("sane_behavior: no other mount options allowed\n");
+			return -EINVAL;
+		}
+		return 0;
 	}
 
 	/*
@@ -2012,7 +2024,6 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 			 int flags, const char *unused_dev_name,
 			 void *data)
 {
-	bool is_v2 = fs_type == &cgroup2_fs_type;
 	struct super_block *pinned_sb = NULL;
 	struct cgroup_namespace *ns = current->nsproxy->cgroup_ns;
 	struct cgroup_subsys *ss;
@@ -2038,23 +2049,21 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 	if (!use_task_css_set_links)
 		cgroup_enable_task_cg_lists();
 
-	if (is_v2) {
-		if (data) {
-			pr_err("cgroup2: unknown option \"%s\"\n", (char *)data);
-			return ERR_PTR(-EINVAL);
-		}
-		cgrp_dfl_root_visible = true;
-		root = &cgrp_dfl_root;
-		cgroup_get(&root->cgrp);
-		goto out_mount;
-	}
-
 	mutex_lock(&cgroup_mutex);
 
 	/* First find the desired set of subsystems */
 	ret = parse_cgroupfs_options(data, &opts);
 	if (ret)
 		goto out_unlock;
+
+	/* look for a matching existing root */
+	if (opts.flags & CGRP_ROOT_SANE_BEHAVIOR) {
+		cgrp_dfl_root_visible = true;
+		root = &cgrp_dfl_root;
+		cgroup_get(&root->cgrp);
+		ret = 0;
+		goto out_unlock;
+	}
 
 	/*
 	 * Destruction of cgroup root is asynchronous, so subsystems may
@@ -2177,11 +2186,10 @@ out_free:
 	if (ret) {
 		put_cgroup_ns(ns);
 		return ERR_PTR(ret);
-out_mount:
-	dentry = kernfs_mount(fs_type, flags, root->kf_root,
-			      is_v2 ? CGROUP2_SUPER_MAGIC : CGROUP_SUPER_MAGIC,
-			      &new_sb);
 	}
+
+	dentry = kernfs_mount(fs_type, flags, root->kf_root,
+			      CGROUP_SUPER_MAGIC, &new_sb);
 
 	/*
 	 * In non-init cgroup namespace, instead of root cgroup's
@@ -2246,13 +2254,7 @@ static struct file_system_type cgroup_fs_type = {
 	.name = "cgroup",
 	.mount = cgroup_mount,
 	.kill_sb = cgroup_kill_sb,
-};
-
-
-static struct file_system_type cgroup2_fs_type = {
-	.name = "cgroup2",
-	.mount = cgroup_mount,
-	.kill_sb = cgroup_kill_sb,
+	.fs_flags = FS_USERNS_MOUNT,
 };
 
 static char *cgroup_path_ns_locked(struct cgroup *cgrp, char *buf, size_t buflen,
@@ -5481,7 +5483,6 @@ int __init cgroup_init(void)
 
 	WARN_ON(sysfs_create_mount_point(fs_kobj, "cgroup"));
 	WARN_ON(register_filesystem(&cgroup_fs_type));
-	WARN_ON(register_filesystem(&cgroup2_fs_type));
 	WARN_ON(!proc_create("cgroups", 0, NULL, &proc_cgroupstats_operations));
 
 	return 0;
@@ -6028,9 +6029,8 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
 					struct user_namespace *user_ns,
 					struct cgroup_namespace *old_ns)
 {
-	struct cgroup_namespace *new_ns = NULL;
-	struct css_set *cset = NULL;
-	int err;
+	struct cgroup_namespace *new_ns;
+	struct css_set *cset;
 
 	BUG_ON(!old_ns);
 
@@ -6040,9 +6040,8 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
 	}
 
 	/* Allow only sysadmin to create cgroup namespace. */
-	err = -EPERM;
 	if (!ns_capable(user_ns, CAP_SYS_ADMIN))
-		goto err_out;
+		return ERR_PTR(-EPERM);
 
 	mutex_lock(&cgroup_mutex);
 	spin_lock_bh(&css_set_lock);
@@ -6053,21 +6052,16 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
 	spin_unlock_bh(&css_set_lock);
 	mutex_unlock(&cgroup_mutex);
 
-	err = -ENOMEM;
 	new_ns = alloc_cgroup_ns();
-	if (!new_ns)
-		goto err_out;
+	if (IS_ERR(new_ns)) {
+		put_css_set(cset);
+		return new_ns;
+	}
 
 	new_ns->user_ns = get_user_ns(user_ns);
 	new_ns->root_cset = cset;
 
 	return new_ns;
-
-err_out:
-	if (cset)
-		put_css_set(cset);
-	kfree(new_ns);
-	return ERR_PTR(err);
 }
 
 static inline struct cgroup_namespace *to_cg_ns(struct ns_common *ns)
