@@ -24,6 +24,11 @@
 #include <linux/usb/cdc-wdm.h>
 #include <linux/u64_stats_sync.h>
 
+#define FIBOCOM_QMI_WWAN_RAWIP
+#ifdef FIBOCOM_QMI_WWAN_RAWIP
+ #include <linux/etherdevice.h>
+#endif 
+
 /* This driver supports wwan (3G/LTE/?) devices using a vendor
  * specific management protocol called Qualcomm MSM Interface (QMI) -
  * in addition to the more common AT commands over serial interface
@@ -600,6 +605,20 @@ fix_dest:
 	return 1;
 }
 
+#ifdef FIBOCOM_QMI_WWAN_RAWIP
+struct sk_buff *qmi_wwan_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags) {
+  if (dev->udev->descriptor.idVendor != cpu_to_le16(0x1508))
+    return skb;
+  if (skb_pull(skb, ETH_HLEN)) {
+    return skb;
+  } else {
+    dev_err(&dev->intf->dev, "Packet Dropped");
+  }
+  dev_kfree_skb_any(skb);
+  return NULL;
+}
+#endif
+
 /* very simplistic detection of IPv4 or IPv6 headers */
 static bool possibly_iphdr(const char *data)
 {
@@ -821,7 +840,21 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 		dev->net->dev_addr[0] &= 0xbf;	/* clear "IP" bit */
 	}
 	dev->net->netdev_ops = &qmi_wwan_netdev_ops;
+
 	dev->net->sysfs_groups[0] = &qmi_wwan_sysfs_attr_group;
+
+#ifdef FIBOCOM_QMI_WWAN_RAWIP
+  if (dev->udev->descriptor.idVendor == cpu_to_le16(0x1508)) {
+    dev_info(&intf->dev, "Fibocom nl668 work on RawIP mode\n");
+    dev->net->flags |= IFF_NOARP;
+    usb_control_msg(
+      interface_to_usbdev(intf),
+      usb_sndctrlpipe(interface_to_usbdev(intf),0),
+      0x22, 0x21, 1, intf->cur_altsetting->desc.bInterfaceNumber, NULL, 0, 100
+    );
+  }
+#endif
+
 err:
 	return status;
 }
@@ -913,6 +946,9 @@ static const struct driver_info	qmi_wwan_info = {
 	.unbind		= qmi_wwan_unbind,
 	.manage_power	= qmi_wwan_manage_power,
 	.rx_fixup       = qmi_wwan_rx_fixup,
+#ifdef FIBOCOM_QMI_WWAN_RAWIP
+  .tx_fixup = qmi_wwan_tx_fixup,
+#endif
 };
 
 static const struct driver_info	qmi_wwan_info_quirk_dtr = {
@@ -1435,6 +1471,7 @@ static const struct usb_device_id products[] = {
 	{QMI_GOBI_DEVICE(0x1199, 0x901b)},	/* Sierra Wireless MC7770 */
 	{QMI_GOBI_DEVICE(0x12d1, 0x14f1)},	/* Sony Gobi 3000 Composite */
 	{QMI_GOBI_DEVICE(0x1410, 0xa021)},	/* Foxconn Gobi 3000 Modem device (Novatel E396) */
+  {QMI_FIXED_INTF(0x1508, 0x1001, 4)}, /*fibocom NL668 */
 
 	{ }					/* END */
 };
