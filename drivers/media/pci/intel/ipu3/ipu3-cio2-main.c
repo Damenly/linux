@@ -2026,8 +2026,11 @@ static int __maybe_unused cio2_resume(struct device *dev)
 	}
 
 	r = v4l2_subdev_call(q->sensor, video, s_stream, 1);
-	if (r)
+
+	if (r) {
 		dev_err(dev, "fail to start sensor streaming\n");
+		cio2_hw_exit(cio2, q);
+	}
 
 	return r;
 }
