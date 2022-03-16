@@ -14,6 +14,7 @@
 #include "locking.h"
 #include "volumes.h"
 #include "qgroup.h"
+#include "tree-checker.h"
 
 static int split_node(struct btrfs_trans_handle *trans, struct btrfs_root
 		      *root, struct btrfs_path *path, int level);
@@ -2381,13 +2382,21 @@ read_block_for_search(struct btrfs_root *root, struct btrfs_path *p,
 
 		/* now we're allowed to do a blocking uptodate check */
 		ret = btrfs_read_buffer(tmp, gen, parent_level - 1, &first_key);
-		if (!ret) {
-			*eb_ret = tmp;
-			return 0;
+		if (ret) {
+			free_extent_buffer(tmp);
+			btrfs_release_path(p);
+			return -EIO;
+
 		}
-		free_extent_buffer(tmp);
-		btrfs_release_path(p);
-		return -EIO;
+
+		if (btrfs_check_eb_owner(tmp, root->root_key.objectid)) {
+			free_extent_buffer(tmp);
+			btrfs_release_path(p);
+			return -EUCLEAN;
+		}
+
+		*eb_ret = tmp;
+		return 0;
 	}
 
 	/*
