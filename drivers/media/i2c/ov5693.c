@@ -27,6 +27,8 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
 
+#define v4l2_subdev_state v4l2_subdev_pad_config
+
 #define OV5693_REG_8BIT(n)			((1 << 16) | (n))
 #define OV5693_REG_16BIT(n)			((2 << 16) | (n))
 #define OV5693_REG_24BIT(n)			((3 << 16) | (n))
@@ -929,7 +931,7 @@ __ov5693_get_pad_crop(struct ov5693_device *ov5693,
 }
 
 static int ov5693_get_fmt(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_state *state,
+			  struct v4l2_subdev_pad_config *state,
 			  struct v4l2_subdev_format *format)
 {
 	struct ov5693_device *ov5693 = to_ov5693_sensor(sd);
@@ -1152,7 +1154,7 @@ static int ov5693_g_frame_interval(struct v4l2_subdev *sd,
 }
 
 static int ov5693_enum_mbus_code(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *state,
+				 struct v4l2_subdev_pad_config *state,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
 	/* Only a single mbus format is supported */
@@ -1464,7 +1466,7 @@ static int ov5693_probe(struct i2c_client *client)
 	pm_runtime_get_noresume(&client->dev);
 	pm_runtime_enable(&client->dev);
 
-	ret = v4l2_async_register_subdev_sensor(&ov5693->sd);
+	ret = v4l2_async_register_subdev_sensor_common(&ov5693->sd);
 	if (ret) {
 		dev_err(&client->dev, "failed to register V4L2 subdev: %d",
 			ret);
