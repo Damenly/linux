@@ -20,7 +20,6 @@
 #include <linux/statfs.h>
 #include <linux/seq_file.h>
 #include "overlayfs.h"
-#include "ovl_entry.h"
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Overlay filesystem");
@@ -67,6 +66,11 @@ struct ovl_entry {
 
 #define OVL_MAX_STACK 500
 
+static struct dentry *__ovl_dentry_lower(struct ovl_entry *oe)
+{
+	return oe->numlower ? oe->lowerstack[0].dentry : NULL;
+}
+
 enum ovl_path_type ovl_path_type(struct dentry *dentry)
 {
 	struct ovl_entry *oe = dentry->d_fsdata;
@@ -88,6 +92,11 @@ enum ovl_path_type ovl_path_type(struct dentry *dentry)
 			type |= __OVL_PATH_MERGE;
 	}
 	return type;
+}
+
+static struct dentry *ovl_upperdentry_dereference(struct ovl_entry *oe)
+{
+	return lockless_dereference(oe->__upperdentry);
 }
 
 void ovl_path_upper(struct dentry *dentry, struct path *path)
