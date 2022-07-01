@@ -103,6 +103,9 @@
 #include "netlabel.h"
 #include "audit.h"
 #include "avc_ss.h"
+#ifdef CONFIG_OVERLAY_FS
+#include "../../fs/overlayfs/ovl_entry.h"
+#endif
 
 struct selinux_state selinux_state;
 
@@ -456,10 +459,32 @@ static int selinux_is_genfs_special_handling(struct super_block *sb)
 		  !strcmp(sb->s_type->name, "cgroup2")));
 }
 
+static bool is_overlay_sb(struct super_block *sb)
+{
+  const char* fstype = sb->s_type->name;
+  return strcmp(fstype, "overlay") == 0;
+}
+
+static bool is_overlay_inode(struct inode *inode)
+{
+  return is_overlay_sb(inode->i_sb); 
+}
+
+#ifdef CONFIG_OVERLAY_FS
+static struct inode *get_real_inode_from_ovl(struct inode *inode) {
+  struct ovl_inode *oi = OVL_I(inode);
+  struct dentry *upperdentry = ovl_upperdentry_dereference(oi);
+  return upperdentry ? d_inode(upperdentry) : oi->lower;
+}
+#endif
+
 static int selinux_is_sblabel_mnt(struct super_block *sb)
 {
 	struct superblock_security_struct *sbsec = sb->s_security;
-
+#ifdef CONFIG_OVERLAY_FS
+  if(is_overlay_sb(sb)) 
+    return 1;
+#endif
 	/*
 	 * IMPORTANT: Double-check logic in this function when adding a new
 	 * SECURITY_FS_USE_* definition!
@@ -2007,19 +2032,22 @@ static inline u32 open_file_to_av(struct file *file)
 
 /* Hook functions begin here. */
 
-static int selinux_binder_set_context_mgr(const struct cred *mgr)
+static int selinux_binder_set_context_mgr(struct task_struct *mgr)
 {
+	u32 mysid = current_sid();
+	u32 mgrsid = task_sid(mgr);
+
 	return avc_has_perm(&selinux_state,
-			    current_sid(), cred_sid(mgr), SECCLASS_BINDER,
+			    mysid, mgrsid, SECCLASS_BINDER,
 			    BINDER__SET_CONTEXT_MGR, NULL);
 }
 
-static int selinux_binder_transaction(const struct cred *from,
-				      const struct cred *to)
+static int selinux_binder_transaction(struct task_struct *from,
+				      struct task_struct *to)
 {
 	u32 mysid = current_sid();
-	u32 fromsid = cred_sid(from);
-	u32 tosid = cred_sid(to);
+	u32 fromsid = task_sid(from);
+	u32 tosid = task_sid(to);
 	int rc;
 
 	if (mysid != fromsid) {
@@ -2030,24 +2058,27 @@ static int selinux_binder_transaction(const struct cred *from,
 			return rc;
 	}
 
-	return avc_has_perm(&selinux_state, fromsid, tosid,
-			    SECCLASS_BINDER, BINDER__CALL, NULL);
-}
-
-static int selinux_binder_transfer_binder(const struct cred *from,
-					  const struct cred *to)
-{
 	return avc_has_perm(&selinux_state,
-			    cred_sid(from), cred_sid(to),
-			    SECCLASS_BINDER, BINDER__TRANSFER,
+			    fromsid, tosid, SECCLASS_BINDER, BINDER__CALL,
 			    NULL);
 }
 
-static int selinux_binder_transfer_file(const struct cred *from,
-					const struct cred *to,
+static int selinux_binder_transfer_binder(struct task_struct *from,
+					  struct task_struct *to)
+{
+	u32 fromsid = task_sid(from);
+	u32 tosid = task_sid(to);
+
+	return avc_has_perm(&selinux_state,
+			    fromsid, tosid, SECCLASS_BINDER, BINDER__TRANSFER,
+			    NULL);
+}
+
+static int selinux_binder_transfer_file(struct task_struct *from,
+					struct task_struct *to,
 					struct file *file)
 {
-	u32 sid = cred_sid(to);
+	u32 sid = task_sid(to);
 	struct file_security_struct *fsec = selinux_file(file);
 	struct dentry *dentry = file->f_path.dentry;
 	struct inode_security_struct *isec;
@@ -3414,7 +3445,15 @@ static int selinux_inode_getsecurity(struct inode *inode, const char *name, void
 	 * and lack of permission just means that we fall back to the
 	 * in-core context value, not a denial.
 	 */
-	isec = inode_security(inode);
+  if (is_overlay_inode(inode)) {
+#ifdef CONFIG_OVERLAY_FS
+    isec = inode_security(get_real_inode_from_ovl(inode));
+#else
+    isec = inode_security(inode);
+#endif
+  }else {
+	  isec = inode_security(inode);
+  }
 	if (has_cap_mac_admin(false))
 		error = security_sid_to_context_force(&selinux_state,
 						      isec->sid, &context,
@@ -3437,11 +3476,26 @@ out_nofree:
 static int selinux_inode_setsecurity(struct inode *inode, const char *name,
 				     const void *value, size_t size, int flags)
 {
-	struct inode_security_struct *isec = inode_security_novalidate(inode);
-	struct superblock_security_struct *sbsec = inode->i_sb->s_security;
+	struct inode_security_struct *isec;
+	struct superblock_security_struct *sbsec;
 	u32 newsid;
 	int rc;
-
+#ifdef CONFIG_OVERLAY_FS
+  struct inode *ovl_inode;
+#endif
+  if (is_overlay_inode(inode)) {
+#ifdef CONFIG_OVERLAY_FS
+    ovl_inode = get_real_inode_from_ovl(inode);
+    isec = inode_security_novalidate(ovl_inode);
+    sbsec = ovl_inode->i_sb->s_security;
+#else
+    isec = inode_security_novalidate(inode);
+    sbsec = inode->i_sb->s_security;
+#endif
+  }else{
+    isec = inode_security_novalidate(inode);
+    sbsec = inode->i_sb->s_security;
+  }
 	if (strcmp(name, XATTR_SELINUX_SUFFIX))
 		return -EOPNOTSUPP;
 

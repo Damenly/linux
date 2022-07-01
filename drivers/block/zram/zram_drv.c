@@ -1826,6 +1826,9 @@ static int zram_open(struct block_device *bdev, fmode_t mode)
 
 	WARN_ON(!mutex_is_locked(&bdev->bd_mutex));
 
+  if (bdev->bd_openers > 1)
+    return -EBUSY;
+
 	zram = bdev->bd_disk->private_data;
 	/* zram was claimed to reset so open request fails */
 	if (zram->claim)

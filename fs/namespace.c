@@ -3180,6 +3180,15 @@ int path_mount(const char *dev_name, struct path *path,
 	if (!(flags & MS_NOATIME))
 		mnt_flags |= MNT_RELATIME;
 
+  if (data_page && !(flags & MS_NOSYMFOLLOW)) {
+    if (!strncmp((char *)data_page, "nosymfollow", 11) ||
+        strstr((char *)data_page, ",nosymfollow")) {
+      WARN(1,
+           "nosymfollow passed in mount data should be changed to the MS_NOSYMFOLLOW flag.");
+      flags |= MS_NOSYMFOLLOW;
+    }
+  }
+
 	/* Separate the per-mountpoint flags */
 	if (flags & MS_NOSUID)
 		mnt_flags |= MNT_NOSUID;

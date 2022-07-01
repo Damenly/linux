@@ -307,6 +307,19 @@ config DM_DEFAULT_KEY
 	  such that all fscrypt keys are at least as hard to compromise
 	  as the default key.
 
+config DM_VERITY_CHROMEOS
+ tristate "Support Chrome OS specific verity error behavior"
+ depends on DM_VERITY
+ help
+   Enables Chrome OS platform-specific error behavior.  In particular,
+   it will modify the partition preceding the verified block device
+   when non-transient error occurs (followed by a panic).
+
+   This module relies on linux/chromeos_platform.h and will behave
+   reasonably if it only supplies the stubs.
+
+   If unsure, say N.
+
 config DM_SNAPSHOT
        tristate "Snapshot target"
        depends on BLK_DEV_DM
@@ -557,6 +570,17 @@ config DM_VERITY_VERIFY_ROOTHASH_SIG
 	  signature file that can validate the roothash of the tree.
 
 	  If unsure, say N.
+
+config DM_VERITY_AVB
+ tristate "Support AVB specific verity error behavior"
+ depends on DM_VERITY
+ help
+   Enables Android Verified Boot platform-specific error
+   behavior. In particular, it will modify the vbmeta partition
+   specified on the kernel command-line when non-transient error
+   occurs (followed by a panic).
+
+   If unsure, say N.
 
 config DM_VERITY_FEC
 	bool "Verity forward error correction support"

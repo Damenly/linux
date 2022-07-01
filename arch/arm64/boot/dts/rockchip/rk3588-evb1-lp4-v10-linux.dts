@@ -30,3 +30,11 @@
 		regulator-suspend-microvolt = <3300000>;
 	};
 };
+
+&vop {
+  disable-win-move;
+};
+
+&gt1x {
+  gtp_ics_slot_report;
+};
