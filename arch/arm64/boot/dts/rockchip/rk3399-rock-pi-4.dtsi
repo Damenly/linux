@@ -703,16 +703,35 @@
 };
 
 &sdmmc {
+	supports-sd;
+	bus-width = <4>;
+	cap-mmc-highspeed;
+	cap-sd-highspeed;
+	disable-wp;
+	num-slots = <1>;
+//	sd-uhs-sdr104;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
+	card-detect-delay = <800>;
+	status = "okay";
+};
+
+/*
+&sdmmc {
 	bus-width = <4>;
 	cap-mmc-highspeed;
 	cap-sd-highspeed;
 	cd-gpios = <&gpio0 RK_PA7 GPIO_ACTIVE_LOW>;
 	disable-wp;
-	max-frequency = <150000000>;
+	clock-frequency = <50000000>;
+	max-frequency = <50000000>;
+	sd-uhs-sdr104;
 	pinctrl-names = "default";
-	pinctrl-0 = <&sdmmc_clk &sdmmc_cd &sdmmc_cmd &sdmmc_bus4>;
+	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
+	card-detect-delay = <800>;
 	status = "okay";
 };
+*/
 
 &sdhci {
 	max-frequency = <150000000>;
@@ -845,4 +864,44 @@
 			connect = <&vopb_out_hdmi>;
 		};
 	};
+};
+
+&mpp_srv {
+	 status = "okay";
+};
+
+&vepu {
+      status = "okay";
+};
+
+&vdpu {
+      status = "okay";
+};
+
+&rkvdec {
+	status = "okay";
+};
+
+&vpu_mmu {
+      status = "okay";
+};
+
+&rga {
+      status = "okay";
+};
+
+&rga {
+      status = "okay";
+};
+
+&iep_mmu {
+       status = "okay";
+};
+
+&iep {
+       status = "okay";
+};
+
+&vdec_mmu {
+       status = "okay";
 };
