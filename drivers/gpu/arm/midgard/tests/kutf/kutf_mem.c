@@ -7,19 +7,24 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 /* Kernel UTF memory management functions */
 
 #include <linux/list.h>
 #include <linux/slab.h>
-#include <linux/module.h>
+#include <linux/export.h>
 
 #include <kutf/kutf_mem.h>
 
@@ -42,6 +47,7 @@ int kutf_mempool_init(struct kutf_mempool *pool)
 	}
 
 	INIT_LIST_HEAD(&pool->head);
+	mutex_init(&pool->lock);
 
 	return 0;
 }
@@ -57,6 +63,7 @@ void kutf_mempool_destroy(struct kutf_mempool *pool)
 		return;
 	}
 
+	mutex_lock(&pool->lock);
 	list_for_each_safe(remove, tmp, &pool->head) {
 		struct kutf_alloc_entry *remove_alloc;
 
@@ -64,6 +71,8 @@ void kutf_mempool_destroy(struct kutf_mempool *pool)
 		list_del(&remove_alloc->node);
 		kfree(remove_alloc);
 	}
+	mutex_unlock(&pool->lock);
+
 }
 EXPORT_SYMBOL(kutf_mempool_destroy);
 
@@ -76,6 +85,8 @@ void *kutf_mempool_alloc(struct kutf_mempool *pool, size_t size)
 		goto fail_pool;
 	}
 
+	mutex_lock(&pool->lock);
+
 	ret = kmalloc(sizeof(*ret) + size, GFP_KERNEL);
 	if (!ret) {
 		pr_err("Failed to allocate memory\n");
@@ -85,9 +96,12 @@ void *kutf_mempool_alloc(struct kutf_mempool *pool, size_t size)
 	INIT_LIST_HEAD(&ret->node);
 	list_add(&ret->node, &pool->head);
 
+	mutex_unlock(&pool->lock);
+
 	return &ret->data[0];
 
 fail_alloc:
+	mutex_unlock(&pool->lock);
 fail_pool:
 	return NULL;
 }
