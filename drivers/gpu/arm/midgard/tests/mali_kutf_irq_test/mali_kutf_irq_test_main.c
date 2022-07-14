@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2016, 2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #include <linux/module.h>
 #include <linux/delay.h>
@@ -85,15 +90,14 @@ static irqreturn_t kbase_gpu_irq_custom_handler(int irq, void *data)
 	struct kbase_device *kbdev = kbase_untag(data);
 	u32 val;
 
-	val = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_STATUS), NULL);
+	val = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_STATUS));
 	if (val & TEST_IRQ) {
 		struct timespec64 tval;
 
 		ktime_get_real_ts64(&tval);
 		irq_time = SEC_TO_NANO(tval.tv_sec) + (tval.tv_nsec);
 
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val,
-				NULL);
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val);
 
 		triggered = true;
 		wake_up(&wait);
@@ -189,7 +193,7 @@ static void mali_kutf_irq_latency(struct kutf_context *context)
 
 		/* Trigger fake IRQ */
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_RAWSTAT),
-				TEST_IRQ, NULL);
+				TEST_IRQ);
 
 		ret = wait_event_timeout(wait, triggered != false, IRQ_TIMEOUT);
 
@@ -232,9 +236,21 @@ int mali_kutf_irq_test_main_init(void)
 	struct kutf_suite *suite;
 
 	irq_app = kutf_create_application("irq");
+
+	if (NULL == irq_app) {
+		pr_warn("Creation of test application failed!\n");
+		return -ENOMEM;
+	}
+
 	suite = kutf_create_suite(irq_app, "irq_default",
 			1, mali_kutf_irq_default_create_fixture,
 			mali_kutf_irq_default_remove_fixture);
+
+	if (NULL == suite) {
+		pr_warn("Creation of test suite failed!\n");
+		kutf_destroy_application(irq_app);
+		return -ENOMEM;
+	}
 
 	kutf_add_test(suite, 0x0, "irq_latency",
 			mali_kutf_irq_latency);

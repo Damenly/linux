@@ -7,13 +7,18 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -24,6 +29,7 @@
 #if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
 #include <mali_kbase_sync.h>
 #endif
+#include <mali_kbase_ioctl.h>
 
 struct kbase_jd_debugfs_depinfo {
 	u8 id;
@@ -40,16 +46,18 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 	switch (atom->core_req & BASE_JD_REQ_SOFT_JOB_TYPE) {
 	case BASE_JD_REQ_SOFT_FENCE_TRIGGER:
 		res = kbase_sync_fence_out_info_get(atom, &info);
-		if (res == 0)
+		if (0 == res) {
 			seq_printf(sfile, "Sa([%p]%d) ",
 				   info.fence, info.status);
-		break;
+			break;
+		}
 	case BASE_JD_REQ_SOFT_FENCE_WAIT:
 		res = kbase_sync_fence_in_info_get(atom, &info);
-		if (res == 0)
+		if (0 == res) {
 			seq_printf(sfile, "Wa([%p]%d) ",
 				   info.fence, info.status);
-		break;
+			break;
+		}
 	default:
 		break;
 	}
@@ -70,7 +78,7 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
 					"Sd(%u#%u: %s) ",
 #else
-					"Sd(%llu#%u: %s) ",
+					"Sd(%llu#%llu: %s) ",
 #endif
 					fence->context,
 					fence->seqno,
@@ -90,7 +98,7 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
 					"Wd(%u#%u: %s) ",
 #else
-					"Wd(%llu#%u: %s) ",
+					"Wd(%llu#%llu: %s) ",
 #endif
 					fence->context,
 					fence->seqno,

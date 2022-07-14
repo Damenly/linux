@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 /*
  * Debugfs interface to dump the memory visible to the GPU
@@ -125,7 +130,7 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	if (!(map->flags & KBASE_REG_CPU_CACHED))
 		prot = pgprot_writecombine(prot);
 
-	page = pfn_to_page(PFN_DOWN(map->alloc->pages[data->offset]));
+	page = as_page(map->alloc->pages[data->offset]);
 	mapping = vmap(&page, 1, VM_MAP, prot);
 	if (!mapping)
 		goto out;
@@ -170,6 +175,13 @@ static int debug_mem_zone_open(struct rb_root *rbtree,
 			/* Empty region - ignore */
 			continue;
 
+		if (reg->flags & KBASE_REG_SECURE) {
+			/* CPU access to protected memory is forbidden - so
+			 * skip this GPU virtual region.
+			 */
+			continue;
+		}
+
 		mapping = kmalloc(sizeof(*mapping), GFP_KERNEL);
 		if (!mapping) {
 			ret = -ENOMEM;
@@ -213,12 +225,6 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	kbase_gpu_vm_lock(kctx);
 
 	ret = debug_mem_zone_open(&kctx->reg_rbtree_same, mem_data);
-	if (0 != ret) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec, mem_data);
 	if (0 != ret) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
@@ -299,7 +305,7 @@ void kbase_debug_mem_view_init(struct file *kctx_file)
 {
 	struct kbase_context *kctx = kctx_file->private_data;
 
-	debugfs_create_file("mem_view", S_IRUGO, kctx->kctx_dentry, kctx_file,
+	debugfs_create_file("mem_view", S_IRUSR, kctx->kctx_dentry, kctx_file,
 			&kbase_debug_mem_view_fops);
 }
 

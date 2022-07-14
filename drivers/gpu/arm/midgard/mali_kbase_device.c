@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 
 
@@ -94,7 +99,6 @@ static int kbase_device_as_init(struct kbase_device *kbdev, int i)
 			destroy_workqueue(kbdev->as[i].pf_wq);
 			return -EINVAL;
 		}
-		KBASE_DEBUG_ASSERT(!object_is_on_stack(poke_work));
 		INIT_WORK(poke_work, kbasep_as_do_poke);
 
 		hrtimer_init(poke_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -207,6 +211,19 @@ int kbase_device_init(struct kbase_device * const kbdev)
 	if (err)
 		goto dma_set_mask_failed;
 
+	if (!kbdev->dev->dma_parms) {
+		kbdev->dev->dma_parms = devm_kzalloc(kbdev->dev,
+				sizeof(*kbdev->dev->dma_parms), GFP_KERNEL);
+		if (!kbdev->dev->dma_parms) {
+			err = -ENOMEM;
+			goto dma_set_mask_failed;
+		}
+	}
+	err = dma_set_max_seg_size(kbdev->dev,
+			(unsigned int)DMA_BIT_MASK(kbdev->gpu_props.mmu.pa_bits));
+	if (err)
+		goto dma_set_mask_failed;
+
 	kbdev->nr_hw_address_spaces = kbdev->gpu_props.num_address_spaces;
 
 	err = kbase_device_all_as_init(kbdev);
@@ -220,14 +237,6 @@ int kbase_device_init(struct kbase_device * const kbdev)
 		goto term_as;
 
 	mutex_init(&kbdev->cacheclean_lock);
-
-#ifdef CONFIG_MALI_TRACE_TIMELINE
-	for (i = 0; i < BASE_JM_MAX_NR_SLOTS; ++i)
-		kbdev->timeline.slot_atoms_submitted[i] = 0;
-
-	for (i = 0; i <= KBASEP_TIMELINE_PM_EVENT_LAST; ++i)
-		atomic_set(&kbdev->timeline.pm_event_uid[i], 0);
-#endif /* CONFIG_MALI_TRACE_TIMELINE */
 
 	/* fbdump profiling controls set to 0 - fbdump not enabled until changed by gator */
 	for (i = 0; i < FBDUMP_CONTROL_MAX; i++)
@@ -249,10 +258,6 @@ int kbase_device_init(struct kbase_device * const kbdev)
 		kbdev->mmu_mode = kbase_mmu_mode_get_aarch64();
 	else
 		kbdev->mmu_mode = kbase_mmu_mode_get_lpae();
-
-#ifdef CONFIG_MALI_DEBUG
-	init_waitqueue_head(&kbdev->driver_inactive_wait);
-#endif /* CONFIG_MALI_DEBUG */
 
 	return 0;
 term_trace:
@@ -283,91 +288,6 @@ void kbase_device_term(struct kbase_device *kbdev)
 void kbase_device_free(struct kbase_device *kbdev)
 {
 	kfree(kbdev);
-}
-
-int kbase_device_trace_buffer_install(
-		struct kbase_context *kctx, u32 *tb, size_t size)
-{
-	unsigned long flags;
-
-	KBASE_DEBUG_ASSERT(kctx);
-	KBASE_DEBUG_ASSERT(tb);
-
-	/* Interface uses 16-bit value to track last accessed entry. Each entry
-	 * is composed of two 32-bit words.
-	 * This limits the size that can be handled without an overflow. */
-	if (0xFFFF * (2 * sizeof(u32)) < size)
-		return -EINVAL;
-
-	/* set up the header */
-	/* magic number in the first 4 bytes */
-	tb[0] = TRACE_BUFFER_HEADER_SPECIAL;
-	/* Store (write offset = 0, wrap counter = 0, transaction active = no)
-	 * write offset 0 means never written.
-	 * Offsets 1 to (wrap_offset - 1) used to store values when trace started
-	 */
-	tb[1] = 0;
-
-	/* install trace buffer */
-	spin_lock_irqsave(&kctx->jctx.tb_lock, flags);
-	kctx->jctx.tb_wrap_offset = size / 8;
-	kctx->jctx.tb = tb;
-	spin_unlock_irqrestore(&kctx->jctx.tb_lock, flags);
-
-	return 0;
-}
-
-void kbase_device_trace_buffer_uninstall(struct kbase_context *kctx)
-{
-	unsigned long flags;
-
-	KBASE_DEBUG_ASSERT(kctx);
-	spin_lock_irqsave(&kctx->jctx.tb_lock, flags);
-	kctx->jctx.tb = NULL;
-	kctx->jctx.tb_wrap_offset = 0;
-	spin_unlock_irqrestore(&kctx->jctx.tb_lock, flags);
-}
-
-void kbase_device_trace_register_access(struct kbase_context *kctx, enum kbase_reg_access_type type, u16 reg_offset, u32 reg_value)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&kctx->jctx.tb_lock, flags);
-	if (kctx->jctx.tb) {
-		u16 wrap_count;
-		u16 write_offset;
-		u32 *tb = kctx->jctx.tb;
-		u32 header_word;
-
-		header_word = tb[1];
-		KBASE_DEBUG_ASSERT(0 == (header_word & 0x1));
-
-		wrap_count = (header_word >> 1) & 0x7FFF;
-		write_offset = (header_word >> 16) & 0xFFFF;
-
-		/* mark as transaction in progress */
-		tb[1] |= 0x1;
-		mb();
-
-		/* calculate new offset */
-		write_offset++;
-		if (write_offset == kctx->jctx.tb_wrap_offset) {
-			/* wrap */
-			write_offset = 1;
-			wrap_count++;
-			wrap_count &= 0x7FFF;	/* 15bit wrap counter */
-		}
-
-		/* store the trace entry at the selected offset */
-		tb[write_offset * 2 + 0] = (reg_offset & ~0x3) | ((type == REG_WRITE) ? 0x1 : 0x0);
-		tb[write_offset * 2 + 1] = reg_value;
-		mb();
-
-		/* new header word */
-		header_word = (write_offset << 16) | (wrap_count << 1) | 0x0;	/* transaction complete */
-		tb[1] = header_word;
-	}
-	spin_unlock_irqrestore(&kctx->jctx.tb_lock, flags);
 }
 
 /*

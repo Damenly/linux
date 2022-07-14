@@ -1,6 +1,5 @@
 /*
- *
- * (C) COPYRIGHT 2014-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -10,7 +9,7 @@
 
 /**
  * @file mali_kbase_config_platform.h
- * 声明 platform_config_of_rk (platform_rk 的 platform_config).
+ * That define the RK platform config.
  */
 
 /**
@@ -21,7 +20,7 @@
  * Attached value: number in kHz
  * Default value: NA
  */
-#define GPU_FREQ_KHZ_MAX (5000)
+#define GPU_FREQ_KHZ_MAX (500000)
 
 /**
  * Minimum frequency GPU will be clocked at.
@@ -31,7 +30,7 @@
  * Attached value: number in kHz
  * Default value: NA
  */
-#define GPU_FREQ_KHZ_MIN (5000)
+#define GPU_FREQ_KHZ_MIN (500000)
 
 /**
  * CPU_SPEED_FUNC
@@ -85,4 +84,10 @@ extern struct kbase_platform_funcs_conf platform_funcs;
  * Attached value: pointer to @ref kbase_secure_ops
  */
 #define SECURE_CALLBACKS (NULL)
+
+/*
+ * Both rk3288 and rk3399 get really unhappy unless you do this.
+ * See https://crrev.com/c/1325749 for some context.
+ */
+#define PLATFORM_POWER_DOWN_ONLY (1)
 

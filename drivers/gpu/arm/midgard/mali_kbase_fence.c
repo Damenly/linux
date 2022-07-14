@@ -7,13 +7,18 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #include <linux/atomic.h>
 #include <linux/list.h>
@@ -62,11 +67,7 @@ kbase_fence_fence_value_str(struct fence *fence, char *str, int size)
 kbase_fence_fence_value_str(struct dma_fence *fence, char *str, int size)
 #endif
 {
-#if (KERNEL_VERSION(5, 1, 0) > LINUX_VERSION_CODE)
-	snprintf(str, size, "%u", fence->seqno);
-#else
 	snprintf(str, size, "%llu", fence->seqno);
-#endif
 }
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
@@ -180,8 +181,13 @@ kbase_fence_add_callback(struct kbase_jd_atom *katom,
 	err = dma_fence_add_callback(fence, &kbase_fence_cb->fence_cb,
 				     callback);
 	if (err == -ENOENT) {
-		/* Fence signaled, clear the error and return */
-		err = 0;
+		/* Fence signaled, get the completion result */
+		err = dma_fence_get_status(fence);
+
+		/* remap success completion to err code */
+		if (err == 1)
+			err = 0;
+
 		kfree(kbase_fence_cb);
 	} else if (err) {
 		kfree(kbase_fence_cb);
