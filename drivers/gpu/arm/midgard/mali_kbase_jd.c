@@ -1301,6 +1301,7 @@ int kbase_jd_submit(struct kbase_context *kctx,
 
 	if (stride != sizeof(base_jd_atom_v2)) {
 		dev_err(kbdev->dev, "Stride passed to job_submit doesn't match kernel, actual size %llu expected %llu");
+		dump_stack();
 		return -EINVAL;
 	} else {
 		dev_err(kbdev->dev, "passed %u atos to kernel", nr_atoms);
