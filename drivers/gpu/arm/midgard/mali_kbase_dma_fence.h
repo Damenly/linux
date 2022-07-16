@@ -7,18 +7,13 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 #ifndef _KBASE_DMA_FENCE_H_
 #define _KBASE_DMA_FENCE_H_
@@ -26,7 +21,7 @@
 #ifdef CONFIG_MALI_DMA_FENCE
 
 #include <linux/list.h>
-#include <linux/dma-resv.h>
+#include <linux/reservation.h>
 #include <mali_kbase_fence.h>
 
 
@@ -45,7 +40,7 @@ struct kbase_context;
  * reservation objects.
  */
 struct kbase_dma_fence_resv_info {
-	struct dma_resv **resv_objs;
+	struct reservation_object **resv_objs;
 	unsigned int dma_fence_resv_count;
 	unsigned long *dma_fence_excl_bitmap;
 };
@@ -56,11 +51,11 @@ struct kbase_dma_fence_resv_info {
  * @info:      Pointer to struct with current reservation info
  * @exclusive: Boolean indicating if exclusive access is needed
  *
- * The function adds a new dma_resv to an existing array of
+ * The function adds a new reservation_object to an existing array of
  * reservation_objects. At the same time keeps track of which objects require
  * exclusive access in dma_fence_excl_bitmap.
  */
-void kbase_dma_fence_add_reservation(struct dma_resv *resv,
+void kbase_dma_fence_add_reservation(struct reservation_object *resv,
 				     struct kbase_dma_fence_resv_info *info,
 				     bool exclusive);
 

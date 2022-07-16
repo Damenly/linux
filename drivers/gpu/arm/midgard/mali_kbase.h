@@ -1,24 +1,19 @@
 /*
  *
- * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 
 
@@ -29,25 +24,26 @@
 
 #include <mali_kbase_debug.h>
 
+#include <asm/page.h>
+
 #include <linux/atomic.h>
 #include <linux/highmem.h>
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 #include <linux/list.h>
-#include <linux/mm.h>
+#include <linux/mm_types.h>
 #include <linux/mutex.h>
 #include <linux/rwsem.h>
 #include <linux/sched.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
-#include <linux/sched/mm.h>
-#endif
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/sched/task_stack.h>
 
 #include "mali_base_kernel.h"
+#include <mali_kbase_uku.h>
 #include <mali_kbase_linux.h>
 
 /*
@@ -59,9 +55,10 @@
 #include "mali_kbase_context.h"
 #include "mali_kbase_strings.h"
 #include "mali_kbase_mem_lowlevel.h"
+#include "mali_kbase_trace_timeline.h"
 #include "mali_kbase_js.h"
-#include "mali_kbase_utility.h"
 #include "mali_kbase_mem.h"
+#include "mali_kbase_utility.h"
 #include "mali_kbase_gpu_memory_debugfs.h"
 #include "mali_kbase_mem_profile_debugfs.h"
 #include "mali_kbase_debug_job_fault.h"
@@ -75,15 +72,12 @@
 #ifdef CONFIG_GPU_TRACEPOINTS
 #include <trace/events/gpu.h>
 #endif
+/**
+ * @page page_base_kernel_main Kernel-side Base (KBase) APIs
+ */
 
-
-#ifndef u64_to_user_ptr
-/* Introduced in Linux v4.6 */
-#define u64_to_user_ptr(x) ((void __user *)(uintptr_t)x)
-#endif
-
-/*
- * Kernel-side Base (KBase) APIs
+/**
+ * @defgroup base_kbase_api Kernel-side Base (KBase) APIs
  */
 
 struct kbase_device *kbase_device_alloc(void);
@@ -111,48 +105,9 @@ void kbase_release_device(struct kbase_device *kbdev);
 
 void kbase_set_profiling_control(struct kbase_device *kbdev, u32 control, u32 value);
 
-
-/**
- * kbase_get_unmapped_area() - get an address range which is currently
- *                             unmapped.
- * @filp: File operations associated with kbase device.
- * @addr: CPU mapped address (set to 0 since MAP_FIXED mapping is not allowed
- *        as Mali GPU driver decides about the mapping).
- * @len: Length of the address range.
- * @pgoff: Page offset within the GPU address space of the kbase context.
- * @flags: Flags for the allocation.
- *
- * Finds the unmapped address range which satisfies requirements specific to
- * GPU and those provided by the call parameters.
- *
- * 1) Requirement for allocations greater than 2MB:
- * - alignment offset is set to 2MB and the alignment mask to 2MB decremented
- * by 1.
- *
- * 2) Requirements imposed for the shader memory alignment:
- * - alignment is decided by the number of GPU pc bits which can be read from
- * GPU properties of the device associated with this kbase context; alignment
- * offset is set to this value in bytes and the alignment mask to the offset
- * decremented by 1.
- * - allocations must not to be at 4GB boundaries. Such cases are indicated
- * by the flag KBASE_REG_GPU_NX not being set (check the flags of the kbase
- * region). 4GB boundaries can be checked against @ref BASE_MEM_MASK_4GB.
- *
- * 3) Requirements imposed for tiler memory alignment, cases indicated by
- * the flag @ref KBASE_REG_TILER_ALIGN_TOP (check the flags of the kbase
- * region):
- * - alignment offset is set to the difference between the kbase region
- * extent (converted from the original value in pages to bytes) and the kbase
- * region initial_commit (also converted from the original value in pages to
- * bytes); alignment mask is set to the kbase region extent in bytes and
- * decremented by 1.
- *
- * Return: if successful, address of the unmapped area aligned as required;
- *         error code (negative) in case of failure;
- */
-unsigned long kbase_get_unmapped_area(struct file *filp,
-		const unsigned long addr, const unsigned long len,
-		const unsigned long pgoff, const unsigned long flags);
+struct kbase_context *
+kbase_create_context(struct kbase_device *kbdev, bool is_compat);
+void kbase_destroy_context(struct kbase_context *kctx);
 
 int kbase_jd_init(struct kbase_context *kctx);
 void kbase_jd_exit(struct kbase_context *kctx);
@@ -239,44 +194,6 @@ void kbase_event_close(struct kbase_context *kctx);
 void kbase_event_cleanup(struct kbase_context *kctx);
 void kbase_event_wakeup(struct kbase_context *kctx);
 
-/**
- * kbasep_jit_alloc_validate() - Validate the JIT allocation info.
- *
- * @kctx:	Pointer to the kbase context within which the JIT
- *		allocation is to be validated.
- * @info:	Pointer to struct @base_jit_alloc_info
- *			which is to be validated.
- * @return: 0 if jit allocation is valid; negative error code otherwise
- */
-int kbasep_jit_alloc_validate(struct kbase_context *kctx,
-					struct base_jit_alloc_info *info);
-/**
- * kbase_mem_copy_from_extres_page() - Copy pages from external resources.
- *
- * @kctx:		kbase context within which the copying is to take place.
- * @extres_pages:	Pointer to the pages which correspond to the external
- *			resources from which the copying will take place.
- * @pages:		Pointer to the pages to which the content is to be
- *			copied from the provided external resources.
- * @nr_pages:		Number of pages to copy.
- * @target_page_nr:	Number of target pages which will be used for copying.
- * @offset:		Offset into the target pages from which the copying
- *			is to be performed. 
- * @to_copy:		Size of the chunk to be copied, in bytes. 
- */
-void kbase_mem_copy_from_extres_page(struct kbase_context *kctx,
-		void *extres_page, struct page **pages, unsigned int nr_pages,
-		unsigned int *target_page_nr, size_t offset, size_t *to_copy);
-/**
- * kbase_mem_copy_from_extres() - Copy from external resources.
- *
- * @kctx:	kbase context within which the copying is to take place.
- * @buf_data:	Pointer to the information about external resources:
- *		pages pertaining to the external resource, number of
- *		pages to copy.
- */
-int kbase_mem_copy_from_extres(struct kbase_context *kctx,
-		struct kbase_debug_copy_buffer *buf_data);
 int kbase_process_soft_job(struct kbase_jd_atom *katom);
 int kbase_prepare_soft_job(struct kbase_jd_atom *katom);
 void kbase_finish_soft_job(struct kbase_jd_atom *katom);
@@ -292,8 +209,18 @@ int kbase_soft_event_update(struct kbase_context *kctx,
 
 bool kbase_replay_process(struct kbase_jd_atom *katom);
 
-void kbasep_soft_job_timeout_worker(struct timer_list *timer);
+void kbasep_soft_job_timeout_worker(struct timer_list *t);
 void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt);
+
+/* api used internally for register access. Contains validation and tracing */
+void kbase_device_trace_register_access(struct kbase_context *kctx, enum kbase_reg_access_type type, u16 reg_offset, u32 reg_value);
+int kbase_device_trace_buffer_install(
+		struct kbase_context *kctx, u32 *tb, size_t size);
+void kbase_device_trace_buffer_uninstall(struct kbase_context *kctx);
+
+/* api to be ported per OS, only need to do the raw register access */
+void kbase_os_reg_write(struct kbase_device *kbdev, u16 offset, u32 value);
+u32 kbase_os_reg_read(struct kbase_device *kbdev, u16 offset);
 
 void kbasep_as_do_poke(struct work_struct *work);
 
@@ -322,29 +249,6 @@ const char *kbase_exception_name(struct kbase_device *kbdev,
 static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 {
 	return kbdev->pm.suspending;
-}
-
-/**
- * kbase_pm_is_active - Determine whether the GPU is active
- *
- * @kbdev: The kbase device structure for the device (must be a valid pointer)
- *
- * This takes into account the following
- *
- * - whether there is an active context reference
- *
- * - whether any of the shader cores or the tiler are needed
- *
- * It should generally be preferred against checking just
- * kbdev->pm.active_count on its own, because some code paths drop their
- * reference on this whilst still having the shader cores/tiler in use.
- *
- * Return: true if the GPU is active, false otherwise
- */
-static inline bool kbase_pm_is_active(struct kbase_device *kbdev)
-{
-	return (kbdev->pm.active_count > 0 || kbdev->shader_needed_cnt ||
-			kbdev->tiler_needed_cnt);
 }
 
 /**
@@ -637,6 +541,20 @@ void kbasep_trace_clear(struct kbase_device *kbdev);
 #endif /* KBASE_TRACE_ENABLE */
 /** PRIVATE - do not use directly. Use KBASE_TRACE_DUMP() instead */
 void kbasep_trace_dump(struct kbase_device *kbdev);
+
+#ifdef CONFIG_MALI_DEBUG
+/**
+ * kbase_set_driver_inactive - Force driver to go inactive
+ * @kbdev:    Device pointer
+ * @inactive: true if driver should go inactive, false otherwise
+ *
+ * Forcing the driver inactive will cause all future IOCTLs to wait until the
+ * driver is made active again. This is intended solely for the use of tests
+ * which require that no jobs are running while the test executes.
+ */
+void kbase_set_driver_inactive(struct kbase_device *kbdev, bool inactive);
+#endif /* CONFIG_MALI_DEBUG */
+
 
 #if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_MALI_NO_MALI)
 

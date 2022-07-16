@@ -7,18 +7,13 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 /* Kernel UTF suite, test and fixture management including user to kernel
  * interaction */
@@ -31,15 +26,12 @@
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/version.h>
-#include <linux/atomic.h>
-#include <linux/sched.h>
 
 #include <generated/autoconf.h>
 
 #include <kutf/kutf_suite.h>
 #include <kutf/kutf_resultset.h>
 #include <kutf/kutf_utils.h>
-#include <kutf/kutf_helpers.h>
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -95,8 +87,7 @@ struct kutf_test_fixture {
 	struct dentry             *dir;
 };
 
-static struct dentry *base_dir;
-static struct workqueue_struct *kutf_workq;
+struct dentry *base_dir;
 
 /**
  * struct kutf_convert_table - Structure which keeps test results
@@ -134,40 +125,16 @@ ADD_UTF_RESULT(KUTF_RESULT_ABORT)
  *                         reported back to the user
  * @test_fix:	Test fixture to be run.
  *
- * The context's refcount will be initialized to 1.
- *
  * Return: Returns the created test context on success or NULL on failure
  */
 static struct kutf_context *kutf_create_context(
 		struct kutf_test_fixture *test_fix);
 
 /**
- * kutf_destroy_context() - Destroy a previously created test context, only
- *                          once its refcount has become zero
- * @kref:	pointer to kref member within the context
- *
- * This should only be used via a kref_put() call on the context's kref member
+ * kutf_destroy_context() - Destroy a previously created test context
+ * @context:	Test context to destroy
  */
-static void kutf_destroy_context(struct kref *kref);
-
-/**
- * kutf_context_get() - increment refcount on a context
- * @context:	the kutf context
- *
- * This must be used when the lifetime of the context might exceed that of the
- * thread creating @context
- */
-static void kutf_context_get(struct kutf_context *context);
-
-/**
- * kutf_context_put() - decrement refcount on a context, destroying it when it
- *                      reached zero
- * @context:	the kutf context
- *
- * This must be used only after a corresponding kutf_context_get() call on
- * @context, and the caller no longer needs access to @context.
- */
-static void kutf_context_put(struct kutf_context *context);
+static void kutf_destroy_context(struct kutf_context *context);
 
 /**
  * kutf_set_result() - Set the test result against the specified test context
@@ -185,6 +152,26 @@ static void kutf_set_result(struct kutf_context *context,
  */
 static void kutf_set_expected_result(struct kutf_context *context,
 		enum kutf_result_status expected_status);
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0))
+/* Pre 3.4.0 kernels don't have the simple_open helper */
+
+/**
+ * simple_open() - Helper for file opening which stores the inode private data
+ *                 into the file private data
+ * @inode:	File entry representation
+ * @file:	A specific opening of the file
+ *
+ * Return: always 0; if inode private data do not exist, the file will not
+ *         be assigned private data
+ */
+static int simple_open(struct inode *inode, struct file *file)
+{
+	if (inode->i_private)
+		file->private_data = inode->i_private;
+	return 0;
+}
+#endif
 
 /**
  * kutf_result_to_string() - Converts a KUTF result into a string
@@ -289,17 +276,32 @@ static void kutf_add_explicit_result(struct kutf_context *context)
 	}
 }
 
-static void kutf_run_test(struct work_struct *data)
+/**
+ * kutf_debugfs_run_open() Debugfs open callback for the "run" entry.
+ * @inode:	inode of the opened file
+ * @file:	Opened file to read from
+ *
+ * This function retrieves the test fixture data that is associated with the
+ * opened file and works back to get the test, suite and application so
+ * it can then run the test that is associated with the file entry.
+ *
+ * Return: 0 on success
+ */
+static int kutf_debugfs_run_open(struct inode *inode, struct file *file)
 {
-	struct kutf_context *test_context = container_of(data,
-			struct kutf_context, work);
-	struct kutf_suite *suite = test_context->suite;
-	struct kutf_test_function *test_func;
+	struct kutf_test_fixture *test_fix = inode->i_private;
+	struct kutf_test_function *test_func = test_fix->test_func;
+	struct kutf_suite *suite = test_func->suite;
+	struct kutf_context *test_context;
 
-	test_func = test_context->test_fix->test_func;
+	test_context = kutf_create_context(test_fix);
+	if (!test_context)
+		return -ENODEV;
+
+	file->private_data = test_context;
 
 	/*
-	 * Call the create fixture function if required before the
+	 *  Call the create fixture function if required before the
 	 * fixture is run
 	 */
 	if (suite->create_fixture)
@@ -316,47 +318,8 @@ static void kutf_run_test(struct work_struct *data)
 
 		kutf_add_explicit_result(test_context);
 	}
-
-	kutf_add_result(test_context, KUTF_RESULT_TEST_FINISHED, NULL);
-
-	kutf_context_put(test_context);
+	return 0;
 }
-
-/**
- * kutf_debugfs_run_open() Debugfs open callback for the "run" entry.
- * @inode:	inode of the opened file
- * @file:	Opened file to read from
- *
- * This function creates a KUTF context and queues it onto a workqueue to be
- * run asynchronously. The resulting file descriptor can be used to communicate
- * userdata to the test and to read back the results of the test execution.
- *
- * Return: 0 on success
- */
-static int kutf_debugfs_run_open(struct inode *inode, struct file *file)
-{
-	struct kutf_test_fixture *test_fix = inode->i_private;
-	struct kutf_context *test_context;
-	int err = 0;
-
-	test_context = kutf_create_context(test_fix);
-	if (!test_context) {
-		err = -ENOMEM;
-		goto finish;
-	}
-
-	file->private_data = test_context;
-
-	/* This reference is release by the kutf_run_test */
-	kutf_context_get(test_context);
-
-	queue_work(kutf_workq, &test_context->work);
-
-finish:
-	return err;
-}
-
-#define USERDATA_WARNING_MESSAGE "WARNING: This test requires userdata\n"
 
 /**
  * kutf_debugfs_run_read() - Debugfs read callback for the "run" entry.
@@ -365,14 +328,8 @@ finish:
  * @len:	Amount of data to read
  * @ppos:	Offset into file to read from
  *
- * This function emits the results of the test, blocking until they are
- * available.
- *
- * If the test involves user data then this will also return user data records
- * to user space. If the test is waiting for user data then this function will
- * output a message (to make the likes of 'cat' display it), followed by
- * returning 0 to mark the end of file.
- *
+ * This function emits the results which where logged during the opening of
+ * the file kutf_debugfs_run_open.
  * Results will be emitted one at a time, once all the results have been read
  * 0 will be returned to indicate there is no more data.
  *
@@ -385,145 +342,60 @@ static ssize_t kutf_debugfs_run_read(struct file *file, char __user *buf,
 	struct kutf_result *res;
 	unsigned long bytes_not_copied;
 	ssize_t bytes_copied = 0;
-	char *kutf_str_ptr = NULL;
-	size_t kutf_str_len = 0;
-	size_t message_len = 0;
-	char separator = ':';
-	char terminator = '\n';
 
+	/* Note: This code assumes a result is read completely */
 	res = kutf_remove_result(test_context->result_set);
+	if (res) {
+		char *kutf_str_ptr = NULL;
+		unsigned int kutf_str_len = 0;
+		unsigned int message_len = 0;
+		char separator = ':';
+		char terminator = '\n';
 
-	if (IS_ERR(res))
-		return PTR_ERR(res);
+		kutf_result_to_string(&kutf_str_ptr, res->status);
+		if (kutf_str_ptr)
+			kutf_str_len = strlen(kutf_str_ptr);
 
-	/*
-	 * Handle 'fake' results - these results are converted to another
-	 * form before being returned from the kernel
-	 */
-	switch (res->status) {
-	case KUTF_RESULT_TEST_FINISHED:
-		return 0;
-	case KUTF_RESULT_USERDATA_WAIT:
-		if (test_context->userdata.flags &
-				KUTF_USERDATA_WARNING_OUTPUT) {
-			/*
-			 * Warning message already output,
-			 * signal end-of-file
-			 */
+		if (res->message)
+			message_len = strlen(res->message);
+
+		if ((kutf_str_len + 1 + message_len + 1) > len) {
+			pr_err("Not enough space in user buffer for a single result");
 			return 0;
 		}
 
-		message_len = sizeof(USERDATA_WARNING_MESSAGE)-1;
-		if (message_len > len)
-			message_len = len;
-
-		bytes_not_copied = copy_to_user(buf,
-				USERDATA_WARNING_MESSAGE,
-				message_len);
-		if (bytes_not_copied != 0)
-			return -EFAULT;
-		test_context->userdata.flags |= KUTF_USERDATA_WARNING_OUTPUT;
-		return message_len;
-	case KUTF_RESULT_USERDATA:
-		message_len = strlen(res->message);
-		if (message_len > len-1) {
-			message_len = len-1;
-			pr_warn("User data truncated, read not long enough\n");
+		/* First copy the result string */
+		if (kutf_str_ptr) {
+			bytes_not_copied = copy_to_user(&buf[0], kutf_str_ptr,
+							kutf_str_len);
+			bytes_copied += kutf_str_len - bytes_not_copied;
+			if (bytes_not_copied)
+				goto exit;
 		}
-		bytes_not_copied = copy_to_user(buf, res->message,
-				message_len);
-		if (bytes_not_copied != 0) {
-			pr_warn("Failed to copy data to user space buffer\n");
-			return -EFAULT;
-		}
-		/* Finally the terminator */
-		bytes_not_copied = copy_to_user(&buf[message_len],
-				&terminator, 1);
-		if (bytes_not_copied != 0) {
-			pr_warn("Failed to copy data to user space buffer\n");
-			return -EFAULT;
-		}
-		return message_len+1;
-	default:
-		/* Fall through - this is a test result */
-		break;
-	}
 
-	/* Note: This code assumes a result is read completely */
-	kutf_result_to_string(&kutf_str_ptr, res->status);
-	if (kutf_str_ptr)
-		kutf_str_len = strlen(kutf_str_ptr);
-
-	if (res->message)
-		message_len = strlen(res->message);
-
-	if ((kutf_str_len + 1 + message_len + 1) > len) {
-		pr_err("Not enough space in user buffer for a single result");
-		return 0;
-	}
-
-	/* First copy the result string */
-	if (kutf_str_ptr) {
-		bytes_not_copied = copy_to_user(&buf[0], kutf_str_ptr,
-						kutf_str_len);
-		bytes_copied += kutf_str_len - bytes_not_copied;
-		if (bytes_not_copied)
-			goto exit;
-	}
-
-	/* Then the separator */
-	bytes_not_copied = copy_to_user(&buf[bytes_copied],
-					&separator, 1);
-	bytes_copied += 1 - bytes_not_copied;
-	if (bytes_not_copied)
-		goto exit;
-
-	/* Finally Next copy the result string */
-	if (res->message) {
+		/* Then the separator */
 		bytes_not_copied = copy_to_user(&buf[bytes_copied],
-						res->message, message_len);
-		bytes_copied += message_len - bytes_not_copied;
+						&separator, 1);
+		bytes_copied += 1 - bytes_not_copied;
 		if (bytes_not_copied)
 			goto exit;
+
+		/* Finally Next copy the result string */
+		if (res->message) {
+			bytes_not_copied = copy_to_user(&buf[bytes_copied],
+							res->message, message_len);
+			bytes_copied += message_len - bytes_not_copied;
+			if (bytes_not_copied)
+				goto exit;
+		}
+
+		/* Finally the terminator */
+		bytes_not_copied = copy_to_user(&buf[bytes_copied],
+						&terminator, 1);
+		bytes_copied += 1 - bytes_not_copied;
 	}
-
-	/* Finally the terminator */
-	bytes_not_copied = copy_to_user(&buf[bytes_copied],
-					&terminator, 1);
-	bytes_copied += 1 - bytes_not_copied;
-
 exit:
 	return bytes_copied;
-}
-
-/**
- * kutf_debugfs_run_write() Debugfs write callback for the "run" entry.
- * @file:	Opened file to write to
- * @buf:	User buffer to read the data from
- * @len:	Amount of data to write
- * @ppos:	Offset into file to write to
- *
- * This function allows user and kernel to exchange extra data necessary for
- * the test fixture.
- *
- * The data is added to the first struct kutf_context running the fixture
- *
- * Return: Number of bytes written
- */
-static ssize_t kutf_debugfs_run_write(struct file *file,
-		const char __user *buf, size_t len, loff_t *ppos)
-{
-	int ret = 0;
-	struct kutf_context *test_context = file->private_data;
-
-	if (len > KUTF_MAX_LINE_LENGTH)
-		return -EINVAL;
-
-	ret = kutf_helper_input_enqueue(test_context, buf, len);
-	if (ret < 0)
-		return ret;
-
-	return len;
 }
 
 /**
@@ -531,10 +403,7 @@ static ssize_t kutf_debugfs_run_write(struct file *file,
  * @inode:	File entry representation
  * @file:	A specific opening of the file
  *
- * Release any resources that were created during the opening of the file
- *
- * Note that resources may not be released immediately, that might only happen
- * later when other users of the kutf_context release their refcount.
+ * Release any resources that where created during the opening of the file
  *
  * Return: 0 on success
  */
@@ -542,9 +411,7 @@ static int kutf_debugfs_run_release(struct inode *inode, struct file *file)
 {
 	struct kutf_context *test_context = file->private_data;
 
-	kutf_helper_input_enqueue_end_of_data(test_context);
-
-	kutf_context_put(test_context);
+	kutf_destroy_context(test_context);
 	return 0;
 }
 
@@ -552,7 +419,6 @@ static const struct file_operations kutf_debugfs_run_ops = {
 	.owner = THIS_MODULE,
 	.open = kutf_debugfs_run_open,
 	.read = kutf_debugfs_run_read,
-	.write = kutf_debugfs_run_write,
 	.release = kutf_debugfs_run_release,
 	.llseek  = default_llseek,
 };
@@ -602,14 +468,8 @@ static int create_fixture_variant(struct kutf_test_function *test_func,
 		goto fail_file;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	tmp = debugfs_create_file_unsafe(
-#else
-	tmp = debugfs_create_file(
-#endif
-			"run", 0600, test_fix->dir,
-			test_fix,
-			&kutf_debugfs_run_ops);
+	tmp = debugfs_create_file("run", S_IROTH, test_fix->dir, test_fix,
+				  &kutf_debugfs_run_ops);
 	if (!tmp) {
 		pr_err("Failed to create debugfs file \"run\" when adding fixture\n");
 		/* Might not be the right error, we don't get it passed back to us */
@@ -952,7 +812,7 @@ static struct kutf_context *kutf_create_context(
 
 	new_context->result_set = kutf_create_result_set();
 	if (!new_context->result_set) {
-		pr_err("Failed to create result set");
+		pr_err("Failed to create resultset");
 		goto fail_result_set;
 	}
 
@@ -968,14 +828,6 @@ static struct kutf_context *kutf_create_context(
 	new_context->fixture_name = NULL;
 	new_context->test_data = test_fix->test_func->test_data;
 
-	new_context->userdata.flags = 0;
-	INIT_LIST_HEAD(&new_context->userdata.input_head);
-	init_waitqueue_head(&new_context->userdata.input_waitq);
-
-	INIT_WORK(&new_context->work, kutf_run_test);
-
-	kref_init(&new_context->kref);
-
 	return new_context;
 
 fail_result_set:
@@ -984,26 +836,12 @@ fail_alloc:
 	return NULL;
 }
 
-static void kutf_destroy_context(struct kref *kref)
+static void kutf_destroy_context(struct kutf_context *context)
 {
-	struct kutf_context *context;
-
-	context = container_of(kref, struct kutf_context, kref);
 	kutf_destroy_result_set(context->result_set);
 	kutf_mempool_destroy(&context->fixture_pool);
 	kfree(context);
 }
-
-static void kutf_context_get(struct kutf_context *context)
-{
-	kref_get(&context->kref);
-}
-
-static void kutf_context_put(struct kutf_context *context)
-{
-	kref_put(&context->kref, kutf_destroy_context);
-}
-
 
 static void kutf_set_result(struct kutf_context *context,
 		enum kutf_result_status status)
@@ -1032,7 +870,8 @@ static void kutf_test_log_result(
 		context->status = new_status;
 
 	if (context->expected_status != new_status)
-		kutf_add_result(context, new_status, message);
+		kutf_add_result(&context->fixture_pool, context->result_set,
+				new_status, message);
 }
 
 void kutf_test_log_result_external(
@@ -1148,18 +987,18 @@ EXPORT_SYMBOL(kutf_test_abort);
  */
 static int __init init_kutf_core(void)
 {
-	kutf_workq = alloc_workqueue("kutf workq", WQ_UNBOUND, 1);
-	if (!kutf_workq)
-		return -ENOMEM;
+	int ret;
 
 	base_dir = debugfs_create_dir("kutf_tests", NULL);
 	if (!base_dir) {
-		destroy_workqueue(kutf_workq);
-		kutf_workq = NULL;
-		return -ENOMEM;
+		ret = -ENODEV;
+		goto exit_dir;
 	}
 
 	return 0;
+
+exit_dir:
+	return ret;
 }
 
 /**
@@ -1170,9 +1009,6 @@ static int __init init_kutf_core(void)
 static void __exit exit_kutf_core(void)
 {
 	debugfs_remove_recursive(base_dir);
-
-	if (kutf_workq)
-		destroy_workqueue(kutf_workq);
 }
 
 #else	/* defined(CONFIG_DEBUG_FS) */

@@ -1,24 +1,19 @@
 /*
  *
- * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 
 /*
@@ -28,65 +23,18 @@
 #include <mali_kbase.h>
 #include <mali_midg_regmap.h>
 #include <mali_kbase_config_defaults.h>
+#ifdef CONFIG_MALI_PLATFORM_DEVICETREE
+#include <linux/pm_runtime.h>
+#endif /* CONFIG_MALI_PLATFORM_DEVICETREE */
 
 #include <mali_kbase_pm.h>
 #include <mali_kbase_hwaccess_jm.h>
 #include <backend/gpu/mali_kbase_js_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
 
 static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data);
-
-int kbase_pm_runtime_init(struct kbase_device *kbdev)
-{
-	struct kbase_pm_callback_conf *callbacks;
-
-	callbacks = (struct kbase_pm_callback_conf *)POWER_MANAGEMENT_CALLBACKS;
-	if (callbacks) {
-		kbdev->pm.backend.callback_power_on =
-					callbacks->power_on_callback;
-		kbdev->pm.backend.callback_power_off =
-					callbacks->power_off_callback;
-		kbdev->pm.backend.callback_power_suspend =
-					callbacks->power_suspend_callback;
-		kbdev->pm.backend.callback_power_resume =
-					callbacks->power_resume_callback;
-		kbdev->pm.callback_power_runtime_init =
-					callbacks->power_runtime_init_callback;
-		kbdev->pm.callback_power_runtime_term =
-					callbacks->power_runtime_term_callback;
-		kbdev->pm.backend.callback_power_runtime_on =
-					callbacks->power_runtime_on_callback;
-		kbdev->pm.backend.callback_power_runtime_off =
-					callbacks->power_runtime_off_callback;
-		kbdev->pm.backend.callback_power_runtime_idle =
-					callbacks->power_runtime_idle_callback;
-
-		if (callbacks->power_runtime_init_callback)
-			return callbacks->power_runtime_init_callback(kbdev);
-		else
-			return 0;
-	}
-
-	kbdev->pm.backend.callback_power_on = NULL;
-	kbdev->pm.backend.callback_power_off = NULL;
-	kbdev->pm.backend.callback_power_suspend = NULL;
-	kbdev->pm.backend.callback_power_resume = NULL;
-	kbdev->pm.callback_power_runtime_init = NULL;
-	kbdev->pm.callback_power_runtime_term = NULL;
-	kbdev->pm.backend.callback_power_runtime_on = NULL;
-	kbdev->pm.backend.callback_power_runtime_off = NULL;
-	kbdev->pm.backend.callback_power_runtime_idle = NULL;
-
-	return 0;
-}
-
-void kbase_pm_runtime_term(struct kbase_device *kbdev)
-{
-	if (kbdev->pm.callback_power_runtime_term) {
-		kbdev->pm.callback_power_runtime_term(kbdev);
-	}
-}
 
 void kbase_pm_register_access_enable(struct kbase_device *kbdev)
 {
@@ -115,6 +63,7 @@ void kbase_pm_register_access_disable(struct kbase_device *kbdev)
 int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 {
 	int ret = 0;
+	struct kbase_pm_callback_conf *callbacks;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
@@ -135,6 +84,38 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 #endif /* CONFIG_MALI_DEBUG */
 	kbdev->pm.backend.gpu_in_desired_state = true;
 	init_waitqueue_head(&kbdev->pm.backend.gpu_in_desired_state_wait);
+
+	callbacks = (struct kbase_pm_callback_conf *)POWER_MANAGEMENT_CALLBACKS;
+	if (callbacks) {
+		kbdev->pm.backend.callback_power_on =
+					callbacks->power_on_callback;
+		kbdev->pm.backend.callback_power_off =
+					callbacks->power_off_callback;
+		kbdev->pm.backend.callback_power_suspend =
+					callbacks->power_suspend_callback;
+		kbdev->pm.backend.callback_power_resume =
+					callbacks->power_resume_callback;
+		kbdev->pm.callback_power_runtime_init =
+					callbacks->power_runtime_init_callback;
+		kbdev->pm.callback_power_runtime_term =
+					callbacks->power_runtime_term_callback;
+		kbdev->pm.backend.callback_power_runtime_on =
+					callbacks->power_runtime_on_callback;
+		kbdev->pm.backend.callback_power_runtime_off =
+					callbacks->power_runtime_off_callback;
+		kbdev->pm.backend.callback_power_runtime_idle =
+					callbacks->power_runtime_idle_callback;
+	} else {
+		kbdev->pm.backend.callback_power_on = NULL;
+		kbdev->pm.backend.callback_power_off = NULL;
+		kbdev->pm.backend.callback_power_suspend = NULL;
+		kbdev->pm.backend.callback_power_resume = NULL;
+		kbdev->pm.callback_power_runtime_init = NULL;
+		kbdev->pm.callback_power_runtime_term = NULL;
+		kbdev->pm.backend.callback_power_runtime_on = NULL;
+		kbdev->pm.backend.callback_power_runtime_off = NULL;
+		kbdev->pm.backend.callback_power_runtime_idle = NULL;
+	}
 
 	/* Initialise the metrics subsystem */
 	ret = kbasep_pm_metrics_init(kbdev);
@@ -179,7 +160,11 @@ void kbase_pm_do_poweron(struct kbase_device *kbdev, bool is_resume)
 	kbase_pm_clock_on(kbdev, is_resume);
 
 	/* Update core status as required by the policy */
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_PM_DO_POWERON_START);
 	kbase_pm_update_cores_state(kbdev);
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_PM_DO_POWERON_END);
 
 	/* NOTE: We don't wait to reach the desired state, since running atoms
 	 * will wait for that state to be reached anyway */
@@ -197,7 +182,11 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 #if !PLATFORM_POWER_DOWN_ONLY
 	/* Wait for power transitions to complete. We do this with no locks held
 	 * so that we don't deadlock with any pending workqueues */
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_PM_DO_POWEROFF_START);
 	kbase_pm_check_transitions_sync(kbdev);
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_PM_DO_POWEROFF_END);
 #endif /* !PLATFORM_POWER_DOWN_ONLY */
 
 	mutex_lock(&js_devdata->runpool_mutex);
@@ -225,6 +214,10 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 #endif /* !PLATFORM_POWER_DOWN_ONLY */
 
+		/* Consume any change-state events */
+		kbase_timeline_pm_check_handle_event(kbdev,
+					KBASE_TIMELINE_PM_EVENT_GPU_STATE_CHANGED);
+
 		/* Disable interrupts and turn the clock off */
 		if (!kbase_pm_clock_off(kbdev, backend->poweroff_is_suspend)) {
 			/*
@@ -240,10 +233,7 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 
 			/* Turn off clock now that fault have been handled. We
 			 * dropped locks so poweron_required may have changed -
-			 * power back on if this is the case (effectively only
-			 * re-enabling of the interrupts would be done in this
-			 * case, as the clocks to GPU were not withdrawn yet).
-			 */
+			 * power back on if this is the case.*/
 			if (backend->poweron_required)
 				kbase_pm_clock_on(kbdev, false);
 			else
@@ -388,8 +378,6 @@ void kbase_hwaccess_pm_halt(struct kbase_device *kbdev)
 	kbase_pm_cancel_deferred_poweroff(kbdev);
 	kbase_pm_do_poweroff(kbdev, false);
 	mutex_unlock(&kbdev->pm.lock);
-
-	kbase_pm_wait_for_poweroff_complete(kbdev);
 }
 
 KBASE_EXPORT_TEST_API(kbase_hwaccess_pm_halt);
@@ -415,12 +403,21 @@ void kbase_pm_power_changed(struct kbase_device *kbdev)
 	bool cores_are_available;
 	unsigned long flags;
 
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_GPU_INTERRUPT_START);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	cores_are_available = kbase_pm_check_transitions_nolock(kbdev);
+	KBASE_TIMELINE_PM_CHECKTRANS(kbdev,
+				SW_FLOW_PM_CHECKTRANS_GPU_INTERRUPT_END);
 
-	if (cores_are_available)
+	if (cores_are_available) {
+		/* Log timelining information that a change in state has
+		 * completed */
+		kbase_timeline_pm_handle_event(kbdev,
+				KBASE_TIMELINE_PM_EVENT_GPU_STATE_CHANGED);
+
 		kbase_backend_slot_update(kbdev);
-
+	}
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 

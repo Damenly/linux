@@ -1,24 +1,19 @@
 /*
  *
- * (C) COPYRIGHT 2014-2016,2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 
 /*
@@ -154,9 +149,11 @@ void kbase_io_history_dump(struct kbase_device *kbdev)
 #endif /* CONFIG_DEBUG_FS */
 
 
-void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
+void kbase_reg_write(struct kbase_device *kbdev, u16 offset, u32 value,
+						struct kbase_context *kctx)
 {
 	KBASE_DEBUG_ASSERT(kbdev->pm.backend.gpu_powered);
+	KBASE_DEBUG_ASSERT(kctx == NULL || kctx->as_nr != KBASEP_AS_NR_INVALID);
 	KBASE_DEBUG_ASSERT(kbdev->dev != NULL);
 
 	writel(value, kbdev->reg + offset);
@@ -166,15 +163,21 @@ void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
 		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
 				value, 1);
 #endif /* CONFIG_DEBUG_FS */
-	dev_dbg(kbdev->dev, "w: reg %08x val %08x", offset, value);
+	dev_dbg(kbdev->dev, "w: reg %04x val %08x", offset, value);
+
+	if (kctx && kctx->jctx.tb)
+		kbase_device_trace_register_access(kctx, REG_WRITE, offset,
+									value);
 }
 
 KBASE_EXPORT_TEST_API(kbase_reg_write);
 
-u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
+u32 kbase_reg_read(struct kbase_device *kbdev, u16 offset,
+						struct kbase_context *kctx)
 {
 	u32 val;
 	KBASE_DEBUG_ASSERT(kbdev->pm.backend.gpu_powered);
+	KBASE_DEBUG_ASSERT(kctx == NULL || kctx->as_nr != KBASEP_AS_NR_INVALID);
 	KBASE_DEBUG_ASSERT(kbdev->dev != NULL);
 
 	val = readl(kbdev->reg + offset);
@@ -184,8 +187,10 @@ u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
 		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
 				val, 0);
 #endif /* CONFIG_DEBUG_FS */
-	dev_dbg(kbdev->dev, "r: reg %08x val %08x", offset, val);
+	dev_dbg(kbdev->dev, "r: reg %04x val %08x", offset, val);
 
+	if (kctx && kctx->jctx.tb)
+		kbase_device_trace_register_access(kctx, REG_READ, offset, val);
 	return val;
 }
 
@@ -206,11 +211,11 @@ static void kbase_report_gpu_fault(struct kbase_device *kbdev, int multiple)
 	u32 status;
 	u64 address;
 
-	status = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_FAULTSTATUS));
+	status = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_FAULTSTATUS), NULL);
 	address = (u64) kbase_reg_read(kbdev,
-			GPU_CONTROL_REG(GPU_FAULTADDRESS_HI)) << 32;
+			GPU_CONTROL_REG(GPU_FAULTADDRESS_HI), NULL) << 32;
 	address |= kbase_reg_read(kbdev,
-			GPU_CONTROL_REG(GPU_FAULTADDRESS_LO));
+			GPU_CONTROL_REG(GPU_FAULTADDRESS_LO), NULL);
 
 	dev_warn(kbdev->dev, "GPU Fault 0x%08x (%s) at 0x%016llx",
 			status & 0xFF,
@@ -236,7 +241,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		kbase_clean_caches_done(kbdev);
 
 	KBASE_TRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, NULL, 0u, val);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val, NULL);
 
 	/* kbase_pm_check_transitions must be called after the IRQ has been
 	 * cleared. This is because it might trigger further power transitions
