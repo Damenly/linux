@@ -1758,9 +1758,12 @@ static int kbase_api_tlstream_stats(struct kbase_context *kctx,
 }
 #endif /* MALI_UNIT_TEST */
 
+#define D(var) pr_info("func: %s ioctl cmd %s\n", __func__, #var);
+
 #define KBASE_HANDLE_IOCTL(cmd, function)                          \
 	case cmd:                                                  \
 	do {                                                       \
+		D(cmd)						   \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != _IOC_NONE);          \
 		return function(kctx);                             \
 	} while (0)
@@ -1768,6 +1771,7 @@ static int kbase_api_tlstream_stats(struct kbase_context *kctx,
 #define KBASE_HANDLE_IOCTL_IN(cmd, function, type)                 \
 	case cmd:                                                  \
 	do {                                                       \
+		D(cmd)						   \
 		type param;                                        \
 		int err;                                           \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != _IOC_WRITE);         \
@@ -1781,6 +1785,7 @@ static int kbase_api_tlstream_stats(struct kbase_context *kctx,
 #define KBASE_HANDLE_IOCTL_OUT(cmd, function, type)                \
 	case cmd:                                                  \
 	do {                                                       \
+		D(cmd)						   \
 		type param;                                        \
 		int ret, err;                                      \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != _IOC_READ);          \
@@ -1795,13 +1800,15 @@ static int kbase_api_tlstream_stats(struct kbase_context *kctx,
 #define KBASE_HANDLE_IOCTL_INOUT(cmd, function, type)                  \
 	case cmd:                                                      \
 	do {                                                           \
+		D(cmd)						       \
 		type param;                                            \
 		int ret, err;                                          \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != (_IOC_WRITE|_IOC_READ)); \
 		BUILD_BUG_ON(sizeof(param) != _IOC_SIZE(cmd));         \
 		err = copy_from_user(&param, uarg, sizeof(param));     \
-		if (err)                                               \
+		if (err)					       \
 			return -EFAULT;                                \
+								       \
 		ret = function(kctx, &param);                          \
 		err = copy_to_user(uarg, &param, sizeof(param));       \
 		if (err)                                               \
@@ -1818,16 +1825,20 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	/* The UK ioctl values overflow the cmd field causing the type to be
 	 * incremented
 	 */
-	if (_IOC_TYPE(cmd) == LINUX_UK_BASE_MAGIC+2)
+	if (_IOC_TYPE(cmd) == LINUX_UK_BASE_MAGIC+2) {
+		pr_info("%s legacy ioctl %d\n", __func__, cmd);
 		return kbase_legacy_ioctl(filp, cmd, arg);
+	}
 
 	/* The UK version check IOCTL doesn't overflow the cmd field, so is
 	 * handled separately here
 	 */
 	if (cmd == _IOC(_IOC_READ|_IOC_WRITE, LINUX_UK_BASE_MAGIC,
 				UKP_FUNC_ID_CHECK_VERSION,
-				sizeof(struct uku_version_check_args)))
+				sizeof(struct uku_version_check_args))) {
+		pr_info("%s legacy 2 ioctl %d\n", __func__, cmd);
 		return kbase_legacy_ioctl(filp, cmd, arg);
+	}
 
 	/* Only these ioctls are available until setup is complete */
 	switch (cmd) {
