@@ -63,8 +63,8 @@
  * 10.6:
  * - Add flags input variable to KBASE_FUNC_TLSTREAM_ACQUIRE
  */
-#define BASE_UK_VERSION_MAJOR 10
-#define BASE_UK_VERSION_MINOR 6
+#define BASE_UK_VERSION_MAJOR 11
+#define BASE_UK_VERSION_MINOR 11
 
 #define LINUX_UK_BASE_MAGIC 0x80
 
