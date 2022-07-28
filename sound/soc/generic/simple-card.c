@@ -115,7 +115,7 @@ static struct snd_soc_ops asoc_simple_card_ops = {
 static struct snd_soc_jack simple_card_hp_jack;
 static struct snd_soc_jack_pin simple_card_hp_jack_pins[] = {
 	{
-		.pin = "Headphones",
+		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
 	},
 };

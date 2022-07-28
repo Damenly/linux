@@ -996,7 +996,7 @@ static irqreturn_t es8316_irq_handler(int irq, void *data)
 
 	queue_delayed_work(system_power_efficient_wq, &es8316->work,
 			   msecs_to_jiffies(es8316->debounce_time));
-
+	printk("8316 irq triggered\n");
 	return IRQ_HANDLED;
 }
 

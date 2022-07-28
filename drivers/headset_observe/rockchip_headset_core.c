@@ -28,7 +28,7 @@
 #include <linux/iio/consumer.h>
 
 /* Debug */
-#if 0
+#if 1
 #define DBG(x...) printk(x)
 #else
 #define DBG(x...) do { } while (0)

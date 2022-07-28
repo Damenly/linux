@@ -97,11 +97,7 @@ static int rockchip_sound_register_jack(struct snd_soc_card *card, struct snd_so
 		dev_name = of_node_full_name(codec->dev->parent->of_node);
 	}
 
-	if (dev_name) {
-		snprintf(jack_name, sizeof(jack_name), "%s Jack", dev_name);
-	} else {
-		snprintf(jack_name, sizeof(jack_name), "Codec %d Jack", index);
-	}
+	snprintf(jack_name, sizeof(jack_name), "%s Jack", card->name);
 
 	ret = snd_soc_card_jack_new(card, jack_name, SND_JACK_LINEOUT,
 						jack, NULL, 0);
@@ -152,7 +148,7 @@ static struct snd_soc_dai_link rk_dailink = {
 };
 
 static struct snd_soc_card snd_soc_card_rk = {
-	.name = "rk-hdmi-dp-sound",
+	.name = "rockchip-1",
 	.dai_link = &rk_dailink,
 	.num_links = 1,
 	.num_aux_devs = 0,

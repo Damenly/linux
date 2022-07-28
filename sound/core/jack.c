@@ -368,6 +368,7 @@ void snd_jack_report(struct snd_jack *jack, int status)
 					    status & testbit);
 	}
 
+	printk("jack report \n");
 	input_sync(jack->input_dev);
 
 }

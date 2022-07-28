@@ -158,7 +158,7 @@
 	es8316-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "rockchip,es8316-codec";
+		simple-audio-card,name = "es8316codec";
 		simple-audio-card,mclk-fs = <256>;
 		simple-audio-card,widgets =
 			"Microphone", "Mic Jack",
@@ -168,6 +168,7 @@
 			"IN1P", "Mic Jack",
 			"Headphone Jack", "HPOL",
 			"Headphone Jack", "HPOR";
+        simple-audio-card,hp-det-gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0>;
 		};
@@ -197,7 +198,15 @@
 		#sound-dai-cells = <0>;
 	};
 
+    hdmi-sound {
+		status = "disabled";
+		compatible = "rockchip,rk3399-hdmi-dp";
+		rockchip,cpu = <&i2s2>;
+		rockchip,codec = <&hdmi>, <&cdn_dp>;
+	};
+
 	hdmi_codec: hdmi-codec {
+        status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,mclk-fs = <256>;
@@ -286,7 +295,16 @@
 			default-state = "on";
 		};
 	};
-
+/*
+    rk_headset {
+        status = "okay";
+		compatible = "rockchip_headset";
+		headset_gpio = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_det>;
+		io-channels = <&saradc 2>;
+	};
+*/
 	test-power {
 		status = "okay";
 	};
@@ -352,6 +370,7 @@
 	mmc-hs400-enhanced-strobe;
 	status = "okay";
 };
+
 
 &i2s0 {
 	status = "okay";
@@ -612,6 +631,8 @@
 		clock-names = "mclk";
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s_8ch_mclk>;
+        //spk-con-gpio = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;
+
 	};
 
 	rockpi_mcu: rockpi_mcu@45 {
@@ -979,7 +1000,14 @@
 };
 
 &pinctrl {
-
+/*
+    headphone {
+		hp_det: hp-det {
+			rockchip,pins =
+				<1 0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+*/
 	sdio0 {
 		sdio0_bus1: sdio0-bus1 {
 			rockchip,pins =
