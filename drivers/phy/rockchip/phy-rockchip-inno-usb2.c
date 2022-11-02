@@ -2029,7 +2029,7 @@ static int rk3308_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 {
 	int ret;
 
-	if (soc_is_rk3308bs()) {
+	if (false) {
 		/* Turn off differential reciver in suspend mode */
 		ret = regmap_update_bits(rphy->grf, 0x30, BIT(2), 0);
 		if (ret)
