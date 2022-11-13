@@ -30,22 +30,8 @@ config MALI_MIDGARD_FOR_ANDROID
 config MALI_MIDGARD_FOR_LINUX
 	bool "Mali Midgard for Linux only"
 
-config MALI_MIDGARD_FOR_CROS
-	bool "Mali Midgard for Chrome OS only"
-
 endchoice
 
 source "drivers/gpu/arm/midgard/Kconfig"
-
-choice
-	prompt "Mali bifrost driver"
-
-config MALI_BIFROST_FOR_ANDROID
-	bool "Mali Bifrost for Android"
-
-config MALI_BIFROST_FOR_LINUX
-	bool "Mali Bifrost for Linux only"
-
-endchoice
 
 source "drivers/gpu/arm/bifrost/Kconfig"
