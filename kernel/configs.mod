@@ -1,0 +1,2 @@
+kernel/configs.o
+

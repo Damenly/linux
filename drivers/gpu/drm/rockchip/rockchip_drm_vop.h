@@ -88,7 +88,7 @@ struct vop_reg_data {
 
 struct vop_reg {
 	uint32_t mask;
-	uint32_t offset:12;
+	uint32_t offset:14;
 	uint32_t shift:5;
 	uint32_t begin_minor:4;
 	uint32_t end_minor:4;
@@ -100,6 +100,7 @@ struct vop_csc {
 	struct vop_reg y2r_en;
 	struct vop_reg r2r_en;
 	struct vop_reg r2y_en;
+	struct vop_reg csc_mode;
 
 	uint32_t y2r_offset;
 	uint32_t r2r_offset;

@@ -40,7 +40,7 @@
 #define PX30_LVDS_SELECT(x)		HIWORD_UPDATE(x, 14, 13)
 #define PX30_LVDS_MODE_EN(x)		HIWORD_UPDATE(x, 12, 12)
 #define PX30_LVDS_MSBSEL(x)		HIWORD_UPDATE(x, 11, 11)
-#define PX30_LVDS_P2S_EN(x)		HIWORD_UPDATE(x, 10, 10)
+#define PX30_LVDS_P2S_EN(x)		HIWORD_UPDATE(x,  6,  6)
 #define PX30_LVDS_VOP_SEL(x)		HIWORD_UPDATE(x,  1,  1)
 
 #define RK3126_GRF_LVDS_CON0		0x0150
@@ -76,6 +76,8 @@ enum lvds_format {
 	LVDS_8BIT_MODE_FORMAT_2,
 	LVDS_8BIT_MODE_FORMAT_3,
 	LVDS_6BIT_MODE,
+	LVDS_10BIT_MODE_FORMAT_1,
+	LVDS_10BIT_MODE_FORMAT_2,
 };
 
 struct rockchip_lvds;
@@ -123,6 +125,7 @@ static const struct drm_connector_funcs rockchip_lvds_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,
 	.reset = drm_atomic_helper_connector_reset,
+	.set_property = drm_atomic_helper_connector_set_property,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
@@ -171,11 +174,17 @@ static void rockchip_lvds_encoder_mode_set(struct drm_encoder *encoder,
 		bus_format = info->bus_formats[0];
 
 	switch (bus_format) {
-	case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:	/* jeida-18 */
-		lvds->format = LVDS_6BIT_MODE;
-		break;
 	case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:	/* jeida-24 */
 		lvds->format = LVDS_8BIT_MODE_FORMAT_2;
+		break;
+	case MEDIA_BUS_FMT_RGB101010_1X7X5_JEIDA: /* jeida-30 */
+		lvds->format = LVDS_10BIT_MODE_FORMAT_2;
+		break;
+	case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:	/* vesa-18 */
+		lvds->format = LVDS_6BIT_MODE;
+		break;
+	case MEDIA_BUS_FMT_RGB101010_1X7X5_SPWG: /* vesa-30 */
+		lvds->format = LVDS_10BIT_MODE_FORMAT_1;
 		break;
 	case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:	/* vesa-24 */
 	default:
@@ -200,7 +209,21 @@ rockchip_lvds_encoder_atomic_check(struct drm_encoder *encoder,
 	else
 		s->bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG;
 
-	s->output_mode = ROCKCHIP_OUT_MODE_P888;
+	switch (s->bus_format) {
+	case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+		s->output_mode = ROCKCHIP_OUT_MODE_P666;
+		break;
+	case MEDIA_BUS_FMT_RGB101010_1X7X5_SPWG:
+	case MEDIA_BUS_FMT_RGB101010_1X7X5_JEIDA:
+		s->output_mode = ROCKCHIP_OUT_MODE_AAAA;
+		break;
+	case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+	case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:
+	default:
+		s->output_mode = ROCKCHIP_OUT_MODE_P888;
+		break;
+	}
+
 	s->output_type = DRM_MODE_CONNECTOR_LVDS;
 	s->tv_state = &conn_state->tv;
 	s->eotf = TRADITIONAL_GAMMA_SDR;
