@@ -36,13 +36,6 @@ struct snd_dma_device {
 #define SNDRV_DMA_TYPE_CONTINUOUS	1	/* continuous no-DMA memory */
 #define SNDRV_DMA_TYPE_DEV		2	/* generic device continuous */
 #define SNDRV_DMA_TYPE_DEV_WC		5	/* continuous write-combined */
-#ifdef CONFIG_SND_DMA_SGBUF
-#define SNDRV_DMA_TYPE_DEV_SG		3	/* generic device SG-buffer */
-#define SNDRV_DMA_TYPE_DEV_WC_SG	6	/* SG write-combined */
-#else
-#define SNDRV_DMA_TYPE_DEV_SG	SNDRV_DMA_TYPE_DEV /* no SG-buf support */
-#define SNDRV_DMA_TYPE_DEV_WC_SG	SNDRV_DMA_TYPE_DEV_WC
-#endif
 #ifdef CONFIG_GENERIC_ALLOCATOR
 #define SNDRV_DMA_TYPE_DEV_IRAM		4	/* generic device iram-buffer */
 #else
@@ -51,7 +44,6 @@ struct snd_dma_device {
 #define SNDRV_DMA_TYPE_VMALLOC		7	/* vmalloc'ed buffer */
 #define SNDRV_DMA_TYPE_NONCONTIG	8	/* non-coherent SG buffer */
 #define SNDRV_DMA_TYPE_NONCOHERENT	9	/* non-coherent buffer */
-<<<<<<< HEAD   (cf7a6e CHROMIUM: intel/ipu6: Do not change the length of sg after m)
 #ifdef CONFIG_SND_DMA_SGBUF
 #define SNDRV_DMA_TYPE_DEV_SG		SNDRV_DMA_TYPE_NONCONTIG
 #define SNDRV_DMA_TYPE_DEV_WC_SG	6	/* SG write-combined */
@@ -64,8 +56,6 @@ struct snd_dma_device {
 #define SNDRV_DMA_TYPE_DEV_SG_FALLBACK		10
 #define SNDRV_DMA_TYPE_DEV_WC_SG_FALLBACK	11
 #endif
-=======
->>>>>>> CHANGE (0dcb28 CHROMIUM: Revert "UPSTREAM: ALSA: memalloc: Unify x86 SG-buf)
 
 /*
  * info for buffer allocation

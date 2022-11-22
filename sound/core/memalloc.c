@@ -635,7 +635,6 @@ static const struct snd_malloc_ops snd_dma_noncontig_ops = {
 	.get_chunk_size = snd_dma_noncontig_get_chunk_size,
 };
 
-<<<<<<< HEAD   (cf7a6e CHROMIUM: intel/ipu6: Do not change the length of sg after m)
 /* x86-specific SG-buffer with WC pages */
 #ifdef CONFIG_SND_DMA_SGBUF
 #define sg_wc_address(it) ((unsigned long)page_address(sg_page_iter_page(it)))
@@ -773,8 +772,6 @@ static const struct snd_malloc_ops snd_dma_sg_fallback_ops = {
 };
 #endif /* CONFIG_SND_DMA_SGBUF */
 
-=======
->>>>>>> CHANGE (0dcb28 CHROMIUM: Revert "UPSTREAM: ALSA: memalloc: Unify x86 SG-buf)
 /*
  * Non-coherent pages allocator
  */
@@ -838,6 +835,9 @@ static const struct snd_malloc_ops *dma_ops[] = {
 	[SNDRV_DMA_TYPE_DEV_WC] = &snd_dma_wc_ops,
 	[SNDRV_DMA_TYPE_NONCONTIG] = &snd_dma_noncontig_ops,
 	[SNDRV_DMA_TYPE_NONCOHERENT] = &snd_dma_noncoherent_ops,
+#ifdef CONFIG_SND_DMA_SGBUF
+	[SNDRV_DMA_TYPE_DEV_WC_SG] = &snd_dma_sg_wc_ops,
+#endif
 #ifdef CONFIG_GENERIC_ALLOCATOR
 	[SNDRV_DMA_TYPE_DEV_IRAM] = &snd_dma_iram_ops,
 #endif /* CONFIG_GENERIC_ALLOCATOR */
@@ -846,10 +846,6 @@ static const struct snd_malloc_ops *dma_ops[] = {
 	[SNDRV_DMA_TYPE_DEV_WC_SG_FALLBACK] = &snd_dma_sg_fallback_ops,
 #endif
 #endif /* CONFIG_HAS_DMA */
-#ifdef CONFIG_SND_DMA_SGBUF
-	[SNDRV_DMA_TYPE_DEV_SG] = &snd_dma_sg_ops,
-	[SNDRV_DMA_TYPE_DEV_WC_SG] = &snd_dma_sg_ops,
-#endif
 };
 
 static const struct snd_malloc_ops *snd_dma_get_ops(struct snd_dma_buffer *dmab)
