@@ -429,6 +429,7 @@ struct it6505 {
 	struct notifier_block event_nb;
 	struct extcon_dev *extcon;
 	struct work_struct extcon_wq;
+	int extcon_state;
 	struct drm_connector *connector;
 	enum drm_connector_status connector_status;
 	enum link_train_status link_state;
