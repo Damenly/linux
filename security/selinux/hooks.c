@@ -103,6 +103,12 @@
 #include "netlabel.h"
 #include "audit.h"
 #include "avc_ss.h"
+#ifndef CONFIG_OVERLAY_FS
+#define CONFIG_OVERLAY_FS
+#endif
+#ifdef CONFIG_OVERLAY_FS
+#include "../../fs/overlayfs/ovl_entry.h"
+#endif
 
 struct selinux_state selinux_state;
 
@@ -466,9 +472,33 @@ static int selinux_is_genfs_special_handling(struct super_block *sb)
 		  !strcmp(sb->s_type->name, "cgroup2")));
 }
 
+static bool is_overlay_sb(struct super_block *sb)
+{
+  const char* fstype = sb->s_type->name;
+  return strcmp(fstype, "overlay") == 0;
+}
+
+static bool is_overlay_inode(struct inode *inode)
+{
+  return is_overlay_sb(inode->i_sb);
+}
+
+#ifdef CONFIG_OVERLAY_FS
+static struct inode *get_real_inode_from_ovl(struct inode *inode) {
+  struct ovl_inode *oi = OVL_I(inode);
+  struct dentry *upperdentry = ovl_upperdentry_dereference(oi);
+  return upperdentry ? d_inode(upperdentry) : oi->lower;
+}
+#endif
+
 static int selinux_is_sblabel_mnt(struct super_block *sb)
 {
 	struct superblock_security_struct *sbsec = selinux_superblock(sb);
+
+#ifdef CONFIG_OVERLAY_FS
+  if(is_overlay_sb(sb))
+    return 1;
+#endif
 
 	/*
 	 * IMPORTANT: Double-check logic in this function when adding a new
@@ -3515,7 +3545,15 @@ static int selinux_inode_getsecurity(struct user_namespace *mnt_userns,
 	 * and lack of permission just means that we fall back to the
 	 * in-core context value, not a denial.
 	 */
-	isec = inode_security(inode);
+  if (is_overlay_inode(inode)) {
+#ifdef CONFIG_OVERLAY_FS
+    isec = inode_security(get_real_inode_from_ovl(inode));
+#else
+    isec = inode_security(inode);
+#endif
+  }else {
+	  isec = inode_security(inode);
+  }
 	if (has_cap_mac_admin(false))
 		error = security_sid_to_context_force(&selinux_state,
 						      isec->sid, &context,
@@ -3538,15 +3576,31 @@ out_nofree:
 static int selinux_inode_setsecurity(struct inode *inode, const char *name,
 				     const void *value, size_t size, int flags)
 {
-	struct inode_security_struct *isec = inode_security_novalidate(inode);
+	struct inode_security_struct *isec;
 	struct superblock_security_struct *sbsec;
 	u32 newsid;
 	int rc;
 
+#ifdef CONFIG_OVERLAY_FS
+  struct inode *ovl_inode;
+#endif
+  if (is_overlay_inode(inode)) {
+#ifdef CONFIG_OVERLAY_FS
+    ovl_inode = get_real_inode_from_ovl(inode);
+    isec = inode_security_novalidate(ovl_inode);
+		sbsec = selinux_superblock(ovl_inode->i_sb);
+#else
+    isec = inode_security_novalidate(inode);
+    sbsec = selinux_superblock(inode->i_sb);
+#endif
+  }else{
+    isec = inode_security_novalidate(inode);
+    sbsec = selinux_superblock(inode->i_sb);
+  }
+
 	if (strcmp(name, XATTR_SELINUX_SUFFIX))
 		return -EOPNOTSUPP;
 
-	sbsec = selinux_superblock(inode->i_sb);
 	if (!(sbsec->flags & SBLABEL_MNT))
 		return -EOPNOTSUPP;
 

@@ -89,7 +89,7 @@ config USB_CYTHERM
 	  Say Y here if you want to connect a Cypress USB thermometer
 	  device to your computer's USB port. This device is also known
 	  as the Cypress USB Starter kit or demo board. The Elektor
-	  magazine published a modified version of this device in issue 
+	  magazine published a modified version of this device in issue
 	  #291.
 
 	  To compile this driver as a module, choose M here: the
@@ -284,6 +284,11 @@ config BRCM_USB_PINMAP
 	  This option enables support for remapping some USB external
 	  signals, which are typically on dedicated pins on the chip,
 	  to any gpio.
+
+config USB_KBD_DOCKER_EMULATOR
+  tristate "Set tablet mode by any usb keyboard"
+  help
+    Say Y if you want to add a docker event when plug a usb keyboard.
 
 config USB_ONBOARD_HUB
 	tristate "Onboard USB hub support"
