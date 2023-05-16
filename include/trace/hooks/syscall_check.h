@@ -32,7 +32,6 @@ DECLARE_HOOK(android_vh_check_file_open,
 DECLARE_HOOK(android_vh_check_bpf_syscall,
 	TP_PROTO(int cmd, const union bpf_attr *attr, unsigned int size),
 	TP_ARGS(cmd, attr, size));
-
 #endif /* _TRACE_HOOK_SYSCALL_CHECK_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

@@ -488,12 +488,14 @@ struct binder_proc_ext {
 	const struct cred *cred;
 };
 
-static inline const struct cred *binder_get_cred(struct binder_proc *proc)
+static inline struct task_struct *binder_get_cred(struct binder_proc *proc)
 {
+  /*
 	struct binder_proc_ext *eproc;
 
 	eproc = container_of(proc, struct binder_proc_ext, proc);
-	return eproc->cred;
+  */
+	return proc->tsk;
 }
 
 /**
