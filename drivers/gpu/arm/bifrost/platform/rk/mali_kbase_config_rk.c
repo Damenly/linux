@@ -111,7 +111,7 @@ static void rk_pm_power_off_delay_work(struct work_struct *work)
 	}
 
 	platform->is_powered = false;
-	wake_unlock(&platform->wake_lock);
+	//wake_unlock(&platform->wake_lock);
 
 	mutex_unlock(&platform->lock);
 }
@@ -284,7 +284,7 @@ static int rk_pm_callback_power_on(struct kbase_device *kbdev)
 	rockchip_monitor_volt_adjust_unlock(kbdev->mdev_info);
 
 	platform->is_powered = true;
-	wake_lock(&platform->wake_lock);
+	//wake_lock(&platform->wake_lock);
 
 out:
 	mutex_unlock(&platform->lock);
