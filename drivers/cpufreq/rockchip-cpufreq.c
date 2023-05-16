@@ -12,7 +12,6 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
@@ -429,10 +428,12 @@ static int rockchip_cpufreq_set_volt(struct device *dev,
 	ret = regulator_set_voltage_triplet(reg, supply->u_volt_min,
 					    supply->u_volt, supply->u_volt_max);
 	if (ret)
-		dev_err(dev, "%s: failed to set voltage (%lu %lu %lu uV): %d\n",
+		dev_err(dev, "%s: failed to set voltage (%lu %lu %lu uV): %d, reg_name:%s\n",
 			__func__, supply->u_volt_min, supply->u_volt,
-			supply->u_volt_max, ret);
-
+			supply->u_volt_max, ret, reg_name);
+  //workaround for fydetab resume issue.
+  if (ret == -13)
+    return 0;
 	return ret;
 }
 
