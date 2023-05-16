@@ -1311,6 +1311,8 @@ s32 gt1x_touch_event_handler(u8 *data, struct input_dev *dev, struct input_dev *
 
 	if (CHK_BIT(cur_event, BIT_TOUCH_KEY | BIT_TOUCH)
 			|| CHK_BIT(pre_event, BIT_TOUCH_KEY | BIT_TOUCH)) {
+    if (gt1x_ics_slot_report)
+      input_mt_sync_frame(dev);
 		input_sync(dev);
 	}
 

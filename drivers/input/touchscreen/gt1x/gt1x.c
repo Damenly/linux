@@ -166,11 +166,14 @@ void gt1x_touch_down(s32 x, s32 y, s32 size, s32 id)
 
 	if (gt1x_ics_slot_report) {
 		input_mt_slot(input_dev, id);
+    input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, true);
 		input_report_abs(input_dev, ABS_MT_PRESSURE, size);
 		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, size);
 		input_report_abs(input_dev, ABS_MT_TRACKING_ID, id);
 		input_report_abs(input_dev, ABS_MT_POSITION_X, x);
 		input_report_abs(input_dev, ABS_MT_POSITION_Y, y);
+    input_report_abs(input_dev, ABS_X, x);
+    input_report_abs(input_dev, ABS_Y, y);
 	} else {
 		input_report_key(input_dev, BTN_TOUCH, 1);
 
@@ -199,6 +202,7 @@ void gt1x_touch_up(s32 id)
 {
 	if (gt1x_ics_slot_report) {
 		input_mt_slot(input_dev, id);
+    input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, false);
 		input_report_abs(input_dev, ABS_MT_TRACKING_ID, -1);
 	} else {
 		input_report_key(input_dev, BTN_TOUCH, 0);
@@ -471,7 +475,7 @@ static s8 gt1x_request_input_dev(void)
 	input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	if (gt1x_ics_slot_report) {
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 0))
-		input_mt_init_slots(input_dev, 16, INPUT_MT_DIRECT);
+		input_mt_init_slots(input_dev, 16, INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED | INPUT_MT_TRACK);
 #else
 		input_mt_init_slots(input_dev, 16);
 #endif
@@ -494,16 +498,17 @@ static s8 gt1x_request_input_dev(void)
 #if GTP_CHANGE_X2Y
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, gt1x_abs_y_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, gt1x_abs_x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, 0, gt1x_abs_y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, gt1x_abs_x_max, 0, 0);
 #else
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, gt1x_abs_x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, gt1x_abs_y_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, 0, gt1x_abs_x_max, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, gt1x_abs_y_max, 0, 0);
 #endif
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0, 255, 0, 0);
-
-	input_set_abs_params(input_dev, ABS_X, 0, 255, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, 255, 0, 0);
 
 	input_dev->name = gt1x_ts_name;
 	input_dev->phys = input_dev_phys;

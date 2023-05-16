@@ -48,3 +48,11 @@
 &vop {
   disable-win-move;
 };
+
+&gt1x {
+  gtp_ics_slot_report;
+};
+
+&cluster0_opp_table {
+  rockchip,pvtm-temp-prop = <244 500>;
+};
