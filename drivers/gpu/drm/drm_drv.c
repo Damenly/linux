@@ -1026,6 +1026,8 @@ out:
 	return err;
 }
 
+bool drm_master_relax;
+
 static const struct file_operations drm_stub_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_stub_open,
@@ -1055,6 +1057,12 @@ static int __init drm_core_init(void)
 	}
 
 	drm_debugfs_root = debugfs_create_dir("dri", NULL);
+
+  if (!debugfs_create_bool("drm_master_relax", S_IRUSR | S_IWUSR,
+        drm_debugfs_root, &drm_master_relax)) {
+    DRM_ERROR(
+        "Cannot create /sys/kernel/debug/dri/drm_master_relax\n");
+  }
 
 	ret = register_chrdev(DRM_MAJOR, "drm", &drm_stub_fops);
 	if (ret < 0)
