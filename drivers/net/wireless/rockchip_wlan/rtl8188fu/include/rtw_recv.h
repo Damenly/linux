@@ -381,7 +381,7 @@ struct recv_priv {
 	struct sk_buff_head rx_skb_queue;
 #ifdef CONFIG_RTW_NAPI
 		struct sk_buff_head rx_napi_skb_queue;
-#endif 
+#endif
 #ifdef CONFIG_RX_INDICATE_QUEUE
 	_tasklet rx_indicate_tasklet;
 	struct ifqueue rx_indicate_queue;
@@ -764,8 +764,8 @@ __inline static union recv_frame *rxmem_to_recvframe(u8 *rxmem)
 __inline static union recv_frame *pkt_to_recvframe(_pkt *pkt)
 {
 
-	u8 *buf_star;
-	union recv_frame *precv_frame;
+	u8 *buf_star = NULL;
+	union recv_frame *precv_frame = NULL;
 	precv_frame = rxmem_to_recvframe((unsigned char *)buf_star);
 
 	return precv_frame;

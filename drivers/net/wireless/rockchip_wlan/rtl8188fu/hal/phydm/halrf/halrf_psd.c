@@ -18,8 +18,8 @@
  * include files
  *============================================================
  */
-#include "mp_precomp.h"
-#include "phydm_precomp.h"
+#include "../mp_precomp.h"
+#include "../phydm_precomp.h"
 
 u64 _sqrt(u64 x)
 {
@@ -126,7 +126,7 @@ void halrf_psd(
 	psd->buf_size = 256;
 
 	mode = average >> 16;
-	
+
 	if (mode == 2)
 		average_tmp = 1;
 	else
@@ -259,7 +259,7 @@ void _halrf_psd_iqk_init(struct dm_struct *dm)
 	}
 
 	odm_set_bb_reg(dm, 0x1b28, MASKDWORD, 0x0);
-	odm_set_bb_reg(dm, 0x1bcc, 0x3f, 0x3f);	
+	odm_set_bb_reg(dm, 0x1bcc, 0x3f, 0x3f);
 }
 
 

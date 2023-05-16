@@ -18,7 +18,7 @@
  * include files
  * ************************************************************ */
 
-#include "mp_precomp.h"
+#include "../mp_precomp.h"
 #include "../phydm_precomp.h"
 
 #if (RTL8188F_SUPPORT == 1)

@@ -29,8 +29,8 @@
  * ************************************************************
  */
 
-#include "mp_precomp.h"
-#include "phydm_precomp.h"
+#include "../mp_precomp.h"
+#include "../phydm_precomp.h"
 
 #if (RTL8822B_SUPPORT == 1 || RTL8821C_SUPPORT == 1 ||\
 	RTL8195B_SUPPORT == 1 || RTL8198F_SUPPORT == 1 ||\
@@ -1327,7 +1327,7 @@ halrf_iqk_init(
 void halrf_rf_k_connect_trigger(void *dm_void, boolean is_recovery,
 				enum halrf_k_segment_time seg_time)
 {
-	struct dm_struct *dm = (struct dm_struct *)dm_void;	
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct dm_dpk_info *dpk_info = &dm->dpk_info;
 	struct _hal_rf_ *rf = &dm->rf_table;
 
@@ -2051,7 +2051,7 @@ void halrf_set_dpkbychannel(void *dm_void, boolean dpk_by_ch)
 	struct dm_dpk_info *dpk_info = &dm->dpk_info;
 	struct dm_iqk_info *iqk_info = &dm->IQK_info;
 
-	
+
 	switch (dm->support_ic_type) {
 #if (RTL8814B_SUPPORT == 1)
 		case ODM_RTL8814B:
@@ -2083,7 +2083,7 @@ void halrf_set_dpkenable(void *dm_void, boolean is_dpk_enable)
 	struct dm_dpk_info *dpk_info = &dm->dpk_info;
 	struct dm_iqk_info *iqk_info = &dm->IQK_info;
 
-	
+
 	switch (dm->support_ic_type) {
 #if (RTL8814B_SUPPORT == 1)
 		case ODM_RTL8814B:
@@ -2098,8 +2098,8 @@ void halrf_set_dpkenable(void *dm_void, boolean is_dpk_enable)
 		break;
 #endif
 #endif
-		
-	
+
+
 		default:
 		break;
 	}
@@ -2112,7 +2112,7 @@ boolean halrf_get_dpkbychannel(void *dm_void)
 	struct dm_dpk_info *dpk_info = &dm->dpk_info;
 	struct dm_iqk_info *iqk_info = &dm->IQK_info;
 	boolean is_dpk_by_channel = true;
-	
+
 	switch (dm->support_ic_type) {
 #if (RTL8814B_SUPPORT == 1)
 		case ODM_RTL8814B:
@@ -2144,7 +2144,7 @@ boolean halrf_get_dpkenable(void *dm_void)
 	struct dm_iqk_info *iqk_info = &dm->IQK_info;
 	boolean is_dpk_enable = true;
 
-	
+
 	switch (dm->support_ic_type) {
 #if (RTL8814B_SUPPORT == 1)
 		case ODM_RTL8814B:
@@ -2390,13 +2390,13 @@ void halrf_dpk_track(void *dm_void)
 #if (RTL8814B_SUPPORT == 1)
 	case ODM_RTL8814B:
 		dpk_track_8814b(dm);
-		break;		
+		break;
 #endif
 
 #if (RTL8822C_SUPPORT == 1)
 	case ODM_RTL8822C:
 		dpk_track_8822c(dm);
-		break;		
+		break;
 #endif
 
 #if (RTL8195B_SUPPORT == 1)
@@ -2422,13 +2422,13 @@ void halrf_dpk_track(void *dm_void)
 #if (RTL8198F_SUPPORT == 1)
 	case ODM_RTL8198F:
 		dpk_track_8198f(dm);
-		break;		
+		break;
 #endif
 
 #if (RTL8812F_SUPPORT == 1)
 	case ODM_RTL8812F:
 		dpk_track_8812f(dm);
-		break;		
+		break;
 #endif
 
 #endif
@@ -2482,14 +2482,14 @@ void halrf_dpk_reload(void *dm_void)
 	case ODM_RTL8198F:
 		if (dpk_info->dpk_path_ok > 0)
 			dpk_reload_8198f(dm);
-		break;		
+		break;
 #endif
 
 #if (RTL8814B_SUPPORT == 1)
 	case ODM_RTL8814B:
 		if (dpk_info->dpk_path_ok > 0)
 			dpk_reload_8814b(dm);
-		break;		
+		break;
 #endif
 
 
@@ -2575,7 +2575,7 @@ void halrf_txgapk_trigger(void *dm_void)
 void halrf_tssi_get_efuse(void *dm_void)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
-	
+
 #if (RTL8822C_SUPPORT == 1)
 	if (dm->support_ic_type & ODM_RTL8822C) {
 		/*halrf_tssi_get_efuse_8822c(dm);*/
@@ -2671,11 +2671,11 @@ void halrf_thermal_cck(void *dm_void)
 void halrf_tssi_set_de(void *dm_void)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
-	
+
 #if (RTL8814B_SUPPORT == 1)
 	if (dm->support_ic_type & ODM_RTL8814B)
 		halrf_tssi_set_de_8814b(dm);
-#endif	
+#endif
 }
 
 void halrf_tssi_dck(void *dm_void, u8 direct_do)
@@ -2685,7 +2685,7 @@ void halrf_tssi_dck(void *dm_void, u8 direct_do)
 
 void halrf_calculate_tssi_codeword(void *dm_void)
 {
-	
+
 }
 
 void halrf_set_tssi_codeword(void *dm_void)

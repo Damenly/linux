@@ -27,8 +27,8 @@
 /*@============================================================*/
 /*@include files*/
 /*@============================================================*/
-#include "mp_precomp.h"
-#include "phydm_precomp.h"
+#include "../mp_precomp.h"
+#include "../phydm_precomp.h"
 
 /*@<YuChen, 150720> Add for KFree Feature Requested by RF David.*/
 /*@This is a phydm API*/
@@ -967,7 +967,7 @@ void phydm_get_set_thermal_trim_offset_8822c(void *dm_void)
 	if (power_trim_info->flag & KFREE_FLAG_THERMAL_K_ON)
 		RF_DBG(dm, DBG_RF_MP, "[kfree] 8822c thermalA:%d thermalB:%d\n",
 			thermal[RF_PATH_A],
-			thermal[RF_PATH_B]);	
+			thermal[RF_PATH_B]);
 }
 
 void phydm_set_power_trim_offset_8822c(void *dm_void)
@@ -1441,7 +1441,7 @@ void phydm_config_new_kfree(void *dm_void)
 			cali_info->reg_rf_kfree_enable == 0) {
 		RF_DBG(dm, DBG_RF_MP,
 		       "[kfree] %s: reg_rf_kfree_enable == true\n", __func__);
-	
+
 		phydm_do_new_kfree(dm);
 	}
 }

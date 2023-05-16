@@ -14,7 +14,7 @@
  *
  *****************************************************************************/
 
-#include "mp_precomp.h"
+#include "../../mp_precomp.h"
 /*#if (DM_ODM_SUPPORT_TYPE == ODM_WIN)*/
 #if (DM_ODM_SUPPORT_TYPE == 0x08) /*[PHYDM-262] workaround for SD4 compile warning*/
 #if RT_PLATFORM == PLATFORM_MACOSX

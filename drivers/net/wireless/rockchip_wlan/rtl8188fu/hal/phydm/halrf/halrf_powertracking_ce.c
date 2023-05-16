@@ -29,8 +29,8 @@
  *============================================================
  */
 
-#include "mp_precomp.h"
-#include "phydm_precomp.h"
+#include "../mp_precomp.h"
+#include "../phydm_precomp.h"
 
 /*@************************************************************
  * Global var
@@ -831,7 +831,7 @@ void odm_txpowertracking_check_ce(void *dm_void)
 			odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
 			odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x00);
 			odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
-			
+
 			odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);
 			odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x00);
 			odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);
@@ -842,7 +842,7 @@ void odm_txpowertracking_check_ce(void *dm_void)
 		dm->rf_calibrate_info.tm_trigger = 1;
 		return;
 	}
-	
+
 	if (dm->support_ic_type & ODM_RTL8822C) {
 #if (RTL8822C_SUPPORT == 1)
 		odm_txpowertracking_new_callback_thermal_meter(dm);
@@ -883,7 +883,7 @@ odm_txpowertracking_direct_ce(void *dm_void)
 		odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
 		odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x00);
 		odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
-			
+
 		odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);
 		odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x00);
 		odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);

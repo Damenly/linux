@@ -27,7 +27,7 @@
 #ifndef __HALPHYRF_H__
 #define __HALPHYRF_H__
 
-#include "halrf/halrf_kfree.h"
+#include "halrf_kfree.h"
 #if (RTL8814A_SUPPORT == 1)
 #include "halrf/rtl8814a/halrf_iqk_8814a.h"
 #endif
@@ -48,11 +48,11 @@
 #endif
 
 #if (RTL8814B_SUPPORT == 1)
-	#include "halrf/rtl8814b/halrf_iqk_8814b.h"	
+	#include "halrf/rtl8814b/halrf_iqk_8814b.h"
 	#include "halrf/rtl8814b/halrf_dpk_8814b.h"
 #endif
 
-#include "halrf/halrf_powertracking_ce.h"
+#include "halrf_powertracking_ce.h"
 
 enum spur_cal_method {
 	PLL_RESET,

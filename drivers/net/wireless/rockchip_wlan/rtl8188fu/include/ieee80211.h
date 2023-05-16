@@ -15,7 +15,7 @@
  *****************************************************************************/
 #ifndef __IEEE80211_H
 #define __IEEE80211_H
-
+#include <linux/etherdevice.h>
 #define MGMT_QUEUE_NUM 5
 
 #define ETH_ALEN	6
@@ -668,7 +668,7 @@ struct ieee80211_snap_hdr {
 #define WLAN_REASON_MESH_MAX_PEERS 53
 #define WLAN_REASON_MESH_CONFIG 54
 #define WLAN_REASON_MESH_CLOSE 55
-#define WLAN_REASON_MESH_MAX_RETRIES 56 
+#define WLAN_REASON_MESH_MAX_RETRIES 56
 #define WLAN_REASON_MESH_CONFIRM_TIMEOUT 57
 #define WLAN_REASON_MESH_INVALID_GTK 58
 #define WLAN_REASON_MESH_INCONSISTENT_PARAM 59
@@ -1453,6 +1453,10 @@ enum ieee80211_state {
 	(((Addr[2]) & 0xff) == 0xff) && (((Addr[3]) & 0xff) == 0xff) && (((Addr[4]) & 0xff) == 0xff) && \
 				     (((Addr[5]) & 0xff) == 0xff))
 #else
+#define is_multicast_mac_addr(Addr) is_multicast_ether_addr(Addr)
+#define is_broadcast_mac_addr(Addr) is_broadcast_ether_addr(Addr)
+#define is_zero_mac_addr(Addr) is_zero_ether_addr(Addr)
+/*
 extern __inline int is_multicast_mac_addr(const u8 *addr)
 {
 	return (addr[0] != 0xff) && (0x01 & addr[0]);
@@ -1469,6 +1473,7 @@ extern __inline int is_zero_mac_addr(const u8 *addr)
 	return ((addr[0] == 0x00) && (addr[1] == 0x00) && (addr[2] == 0x00) &&   \
 		(addr[3] == 0x00) && (addr[4] == 0x00) && (addr[5] == 0x00));
 }
+*/
 #endif /* PLATFORM_FREEBSD */
 
 #define CFG_IEEE80211_RESERVE_FCS (1<<0)

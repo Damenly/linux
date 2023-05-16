@@ -2356,7 +2356,7 @@ int rtw_readable_file_sz_chk(const char *path, u32 sz)
 
 	if (fsz > sz)
 		return _FALSE;
-	
+
 	return _TRUE;
 }
 
@@ -2837,7 +2837,7 @@ int map_readN(const struct map_t *map, u16 offset, u16 len, u8 *buf)
 			else
 				c_len = seg->sa + seg->len - offset;
 		}
-			
+
 		_rtw_memcpy(c_dst, c_src, c_len);
 	}
 
@@ -3018,7 +3018,7 @@ void dump_blacklist(void *sel, _queue *blist, const char *title)
 	if (rtw_end_of_queue_search(head, list) == _FALSE) {
 		if (title)
 			RTW_PRINT_SEL(sel, "%s:\n", title);
-	
+
 		while (rtw_end_of_queue_search(head, list) == _FALSE) {
 			ent = LIST_CONTAINOR(list, struct blacklist_ent, list);
 			list = get_next(list);
@@ -3163,3 +3163,4 @@ int hexstr2bin(const char *hex, u8 *buf, size_t len)
 	return 0;
 }
 
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);

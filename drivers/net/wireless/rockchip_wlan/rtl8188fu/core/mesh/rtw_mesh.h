@@ -15,7 +15,7 @@
  *****************************************************************************/
 #ifndef __RTW_MESH_H_
 #define __RTW_MESH_H_
-
+#include <drv_types.h>
 #ifndef CONFIG_AP_MODE
 	#error "CONFIG_RTW_MESH can't be enabled when CONFIG_AP_MODE is not defined\n"
 #endif
@@ -378,7 +378,7 @@ struct rtw_mesh_info {
 	systime next_perr;
 	/* Last used Path Discovery ID */
 	u32 preq_id;
-	
+
 	ATOMIC_T mpaths;
 	struct rtw_mesh_table *mesh_paths;
 	struct rtw_mesh_table *mpp_paths;

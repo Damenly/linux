@@ -13,7 +13,7 @@
  * more details.
  *
  *****************************************************************************/
-
+#include <drv_types.h>
 #include <rtw_odm.h>
 #include <hal_data.h>
 
