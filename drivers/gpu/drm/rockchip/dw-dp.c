@@ -1986,6 +1986,8 @@ static ssize_t dw_dp_aux_transfer(struct drm_dp_aux *aux,
 	u32 status, value;
 	ssize_t ret = 0;
 
+  if (!dw_dp_detect(dp))
+    return -EIO;
 	if (WARN_ON(msg->size > 16))
 		return -E2BIG;
 
