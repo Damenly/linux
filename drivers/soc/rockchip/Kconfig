@@ -268,4 +268,9 @@ config RK_MEMBLOCK_PROCFS
 	  Extend memblock procfs to show size of each memblock, and shows the
 	  result of total size by KiB format.
 
+config ROCKCHIP_FYDETAB_GRF
+	bool "initialize grf with specific values on FydeTab"
+	default n
+	help
+	  If unsure, say n.
 endif
