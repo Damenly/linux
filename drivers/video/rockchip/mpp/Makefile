@@ -8,7 +8,7 @@ MPP_GIT_REVISION := \
 MPP_REVISION_0 := $(subst \,\\\,$(MPP_GIT_REVISION))
 MPP_REVISION   := $(subst ",\\\",$(MPP_REVISION_0))
 
-rk_vcodec-objs := mpp_service.o mpp_common.o mpp_iommu.o
+rk_vcodec-objs := mpp_service.o mpp_common.o mpp_iommu.o dummy_v4l2_devices.o
 CFLAGS_mpp_service.o += -DMPP_VERSION="\"$(MPP_REVISION)\""
 
 rk_vcodec-$(CONFIG_ROCKCHIP_MPP_RKVDEC) += mpp_rkvdec.o

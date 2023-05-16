@@ -23,6 +23,7 @@
 #include "mpp_debug.h"
 #include "mpp_common.h"
 #include "mpp_iommu.h"
+#include "dummy_v4l2_devices.h"
 
 #define MPP_CLASS_NAME		"mpp_class"
 #define MPP_SERVICE_NAME	"mpp_service"
@@ -434,8 +435,8 @@ static int mpp_service_probe(struct platform_device *pdev)
 	MPP_REGISTER_DRIVER(srv, HAS_RKVENC2, RKVENC2, rkvenc2);
 	MPP_REGISTER_DRIVER(srv, HAS_AV1DEC, AV1DEC, av1dec);
 
+  init_dummy_v4l2_devices();
 	dev_info(dev, "probe success\n");
-
 	return 0;
 
 fail_register:
@@ -452,6 +453,7 @@ static int mpp_service_remove(struct platform_device *pdev)
 	int i;
 
 	dev_info(dev, "remove device\n");
+  cleanup_dummy_v4l2_devices();
 
 	for (i = 0; i < srv->taskqueue_cnt; i++) {
 		queue = srv->task_queues[i];
