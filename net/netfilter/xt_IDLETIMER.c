@@ -331,7 +331,7 @@ static int idletimer_tg_create(struct idletimer_tg_info *info)
 	pr_debug("timer type value is 0.\n");
 	info->timer->timer_type = 0;
 	info->timer->refcnt = 1;
-	info->timer->send_nl_msg = false;
+	info->timer->send_nl_msg = (info->send_nl_msg == 0) ? false : true;
 	info->timer->active = true;
 	info->timer->timeout = info->timeout;
 
@@ -711,6 +711,7 @@ static void idletimer_tg_destroy_v1(const struct xt_tgdtor_param *par)
 static struct xt_target idletimer_tg[] __read_mostly = {
 	{
 	.name		= "IDLETIMER",
+  .revision = 1,
 	.family		= NFPROTO_UNSPEC,
 	.target		= idletimer_tg_target,
 	.targetsize     = sizeof(struct idletimer_tg_info),

@@ -212,6 +212,7 @@ static inline void __mm_zero_struct_page(struct page *page)
 #define DEFAULT_MAX_MAP_COUNT	(USHRT_MAX - MAPCOUNT_ELF_CORE_MARGIN)
 
 extern int sysctl_max_map_count;
+extern int sysctl_mmap_noexec_taint;
 
 extern unsigned long sysctl_user_reserve_kbytes;
 extern unsigned long sysctl_admin_reserve_kbytes;
@@ -3360,6 +3361,9 @@ unsigned long wp_shared_mapping_range(struct address_space *mapping,
 #endif
 
 extern int sysctl_nr_trim_pages;
+extern int min_filelist_kbytes;
+extern int min_filelist_kbytes_handler(struct ctl_table *table, int write,
+  void *buf, size_t *len, loff_t *pos);
 extern bool pte_map_lock_addr(struct vm_fault *vmf, unsigned long addr);
 extern int reclaim_shmem_address_space(struct address_space *mapping);
 extern int reclaim_pages_from_list(struct list_head *page_list);

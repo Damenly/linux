@@ -236,6 +236,8 @@ source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
 
+source "drivers/pkglist/Kconfig"
+
 source "drivers/rkflash/Kconfig"
 
 source "drivers/rk_nand/Kconfig"

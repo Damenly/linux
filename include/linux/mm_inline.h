@@ -45,6 +45,25 @@ static __always_inline void update_lru_size(struct lruvec *lruvec,
 #endif
 }
 
+static inline bool lru_gen_enabled(void)
+{
+  return false;
+}
+
+static inline bool lru_gen_addition(struct page *page, struct lruvec *lruvec, bool front)
+{
+  return false;
+}
+
+static inline bool lru_gen_deletion(struct page *page, struct lruvec *lruvec)
+{
+  return false;
+}
+
+static inline void page_inc_usage(struct page *page)
+{
+}
+
 static __always_inline void add_page_to_lru_list(struct page *page,
 				struct lruvec *lruvec, enum lru_list lru)
 {
