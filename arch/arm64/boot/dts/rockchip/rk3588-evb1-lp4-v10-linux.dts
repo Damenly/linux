@@ -44,3 +44,7 @@
 		regulator-suspend-microvolt = <3300000>;
 	};
 };
+
+&vop {
+  disable-win-move;
+};
