@@ -1296,15 +1296,17 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 	if (!drm_any_plane_has_format(&dev_priv->drm,
 				      mode_cmd->pixel_format,
 				      mode_cmd->modifier[0])) {
-		drm_dbg(&dev_priv->drm,
+		drm_err(&dev_priv->drm,
 			"unsupported pixel format %p4cc / modifier 0x%llx\n",
 			&mode_cmd->pixel_format, mode_cmd->modifier[0]);
 		return -EINVAL;
 	}
 
 	/* Surface must be marked as a scanout. */
-	if (unlikely(!surface->metadata.scanout))
+	if (unlikely(!surface->metadata.scanout)) {
+    DRM_ERROR("no scanout format: %p4cc\n",  &mode_cmd->pixel_format);
 		return -EINVAL;
+  }
 
 	if (unlikely(surface->metadata.mip_levels[0] != 1 ||
 		     surface->metadata.num_sizes != 1 ||
@@ -1318,11 +1320,15 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 
 	switch (mode_cmd->pixel_format) {
 	case DRM_FORMAT_ARGB8888:
-		format = SVGA3D_A8R8G8B8;
+		format = SVGA3D_B8G8R8A8_UNORM;
 		break;
 	case DRM_FORMAT_XRGB8888:
-		format = SVGA3D_X8R8G8B8;
+  case DRM_FORMAT_XBGR8888:
+		format = SVGA3D_B8G8R8X8_UNORM;
 		break;
+  case DRM_FORMAT_ABGR8888:
+    format = SVGA3D_R8G8B8A8_UNORM;
+    break;
 	case DRM_FORMAT_RGB565:
 		format = SVGA3D_R5G6B5;
 		break;
@@ -1359,8 +1365,10 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 
 	ret = drm_framebuffer_init(dev, &vfbs->base.base,
 				   &vmw_framebuffer_surface_funcs);
-	if (ret)
+	if (ret) {
+    DRM_ERROR(" drm_framebuffer_init failed, ret:%d\n", ret);
 		goto out_err2;
+  }
 
 	return 0;
 
@@ -1430,11 +1438,18 @@ static int vmw_create_bo_proxy(struct drm_device *dev,
 
 	switch (mode_cmd->pixel_format) {
 	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_XRGB8888:
-		format = SVGA3D_X8R8G8B8;
+	  format = SVGA3D_B8G8R8A8_UNORM;
 		bytes_pp = 4;
 		break;
-
+	case DRM_FORMAT_XRGB8888:
+  case DRM_FORMAT_XBGR8888:
+		format = SVGA3D_B8G8R8X8_UNORM;
+		bytes_pp = 4;
+		break;
+	case DRM_FORMAT_ABGR8888:
+    format = SVGA3D_R8G8B8A8_UNORM;
+    bytes_pp = 4;
+    break;
 	case DRM_FORMAT_RGB565:
 	case DRM_FORMAT_XRGB1555:
 		format = SVGA3D_R5G6B5;
@@ -1591,9 +1606,10 @@ vmw_kms_new_framebuffer(struct vmw_private *dev_priv,
 	    dev_priv->active_display_unit == vmw_du_screen_target) {
 		ret = vmw_create_bo_proxy(&dev_priv->drm, mode_cmd,
 					  bo, &surface);
-		if (ret)
+		if (ret) {
+      DRM_ERROR("vmw_create_bo_proxy failed, ret:%d\n", ret);
 			return ERR_PTR(ret);
-
+    }
 		is_bo_proxy = true;
 	}
 
@@ -1615,8 +1631,10 @@ vmw_kms_new_framebuffer(struct vmw_private *dev_priv,
 		BUG();
 	}
 
-	if (ret)
+	if (ret) {
+    DRM_ERROR("vmw_kms_new_framebuffer_bo ret:%d\n", ret);
 		return ERR_PTR(ret);
+  }
 
 	return vfb;
 }

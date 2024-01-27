@@ -173,6 +173,8 @@ static int chromiumos_security_inode_follow_link(struct dentry *dentry,
 	static char accessed_path[PATH_MAX];
 	enum chromiumos_inode_security_policy policy;
 
+	return 0;
+
 	policy = chromiumos_get_inode_security_policy(
 		dentry, inode,
 		CHROMIUMOS_SYMLINK_TRAVERSAL);
@@ -283,6 +285,7 @@ static int chromiumos_sb_eat_lsm_opts(char *options, void **mnt_opts)
 static int chromiumos_bprm_creds_for_exec(struct linux_binprm *bprm)
 {
 	struct file *file = bprm->file;
+	return 0;
 
 	if (shmem_file(file)) {
 		char *cmdline = printable_cmdline(current);

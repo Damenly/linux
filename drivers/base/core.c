@@ -36,6 +36,13 @@
 #include "physical_location.h"
 #include "power/power.h"
 
+long enforce_hyperthreading = 0;
+static int __init enforce_hyperthreading_setup(char *arg)
+{
+	return kstrtol(arg, 10, &enforce_hyperthreading);
+}
+early_param("enforce_hyperthreading", enforce_hyperthreading_setup);
+
 /* Device links support. */
 static LIST_HEAD(deferred_sync);
 static unsigned int defer_sync_state_count = 1;
@@ -2687,6 +2694,9 @@ static ssize_t online_store(struct device *dev, struct device_attribute *attr,
 {
 	bool val;
 	int ret;
+
+	if (enforce_hyperthreading)
+		return count;
 
 	ret = kstrtobool(buf, &val);
 	if (ret < 0)
