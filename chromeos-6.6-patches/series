@@ -1,0 +1,14 @@
+0002-hid_sensors_compatibility.patch
+0003-allow_usb_updates.patch
+0004-dmi_id.patch
+0005-hwid.patch
+0007-tablet-mode-switch.patch
+crouton.patch
+ext4fs_execmount.patch
+hyperthreading.patch
+i915_fix.patch
+l1tf.patch
+lsm_shmem.patch
+symlinks.patch
+0001-CHROMIUM-fs-Import-esdfs-code.patch
+0001-openfyde-overlayfs-trick.patch
